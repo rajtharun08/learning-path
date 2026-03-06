@@ -22,6 +22,9 @@ pip
 ## Installation
 
 ``` bash
+cd backend
+python -m venv .venv 
+.venv\Scripts\activate
 pip install fastapi uvicorn pydantic
 ```
 

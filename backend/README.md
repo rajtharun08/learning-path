@@ -70,11 +70,12 @@ The frontend should utilize the status field in the roadmap steps for
 conditional rendering:
 
 **completed:** Topic mastered. Render with a finished state.
+
 **review:** Topic skipped via user pills. Render as completed but provide a "Review Resources" option. Use the is_reviewable: true flag to trigger this UI state.
 
 **active:** Current focus. Render course cards and details.
 
 **locked:** Prerequisite required. Render as disabled or hidden.
 
-The is_path_finished boolean should be used to trigger the final
+The is_path_finished boolean can be used to trigger the final
 completion state in the user interface.

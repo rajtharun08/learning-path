@@ -86,34 +86,60 @@ async def generate_path(profile: UserProfile):
 
     for i, topic in enumerate(topics):
         relevant_ids = [c["id"] for c in mock_courses if c["topic"] == topic]
-        is_done = any(cid in history for cid in relevant_ids) or \
-                  any(pill.lower() in topic.lower() for pill in profile.current_skills)
+        
+        # Checking if topic is done via history or skipped via pills
+        is_history_done = any(cid in history for cid in relevant_ids)
+        is_pill_skipped = any(pill.lower() in topic.lower() for pill in profile.current_skills)
+        is_reviewable = False
 
-        if is_done:
-            status, courses = "completed", []
-            for c in [x for x in mock_courses if x["topic"] == topic]:
-                courses.append({"course_id": c["id"], "title": c["title"], "resource_url": c["resource_url"], "is_finished": True})
+        if is_history_done:
+            status = "completed"
+        elif is_pill_skipped:
+            status = "review"
+            is_reviewable = True
         elif not active_found:
             status, active_found = "active", True
-            available = [c for c in mock_courses if c["topic"] == topic]
-            courses = sorted([
-                {**c, "course_id": c["id"], "match_score": calculate_score(c, target_level), "is_finished": c["id"] in history}
-                for c in available
-            ], key=lambda x: x["match_score"], reverse=True)
         else:
-            status, courses = "locked", []
+            status = "locked"
 
-        roadmap.append({"step": i + 1, "topic": topic, "status": status, "suggested_courses": courses})
+        # Populate courses for completed, review, or active states
+        courses = []
+        if status in ["completed", "review", "active"]:
+            available = [c for c in mock_courses if c["topic"] == topic]
+            for c in available:
+                courses.append({
+                    "course_id": c["id"],
+                    "title": c["title"],
+                    "provider": c.get("provider", "Unknown"),
+                    "resource_url": c["resource_url"],
+                    "match_score": calculate_score(c, target_level),
+                    "is_finished": c["id"] in history or is_pill_skipped
+                })
+            # Rank active courses by score
+            if status == "active":
+                courses = sorted(courses, key=lambda x: x["match_score"], reverse=True)
+
+        roadmap.append({
+            "step": i + 1, 
+            "topic": topic, 
+            "status": status, 
+            "is_reviewable": is_reviewable,
+            "suggested_courses": courses
+        })
 
     return {
         "user_id": profile.user_id, "role": profile.role, "inferred_level": target_level,
-        "engine": engine, "roadmap": roadmap, "is_path_finished": all(s["status"] == "completed" for s in roadmap)
+        "engine": engine, "roadmap": roadmap, 
+        "is_path_finished": all(s["status"] in ["completed", "review"] for s in roadmap)
     }
 
 # HISTORY MANAGEMENT
 @app.post("/api/v1/user/history")
 async def update_history(update: HistoryUpdate):
-    user_histories.setdefault(update.user_id, []).append(update.course_id)
+    if update.user_id not in user_histories:
+        user_histories[update.user_id] = []
+    if update.course_id not in user_histories[update.user_id]:
+        user_histories[update.user_id].append(update.course_id)
     return {"status": "success"}
 
 @app.get("/api/v1/user/{user_id}/history")

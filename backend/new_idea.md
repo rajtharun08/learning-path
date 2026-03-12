@@ -1,6 +1,6 @@
 ## System Architecture
 
-### Phase 1: Intelligent Onboarding and Unverified Profiling
+### Phase 1: Onboarding and Unverified Profiling
 
 The onboarding system captures user intent while maintaining strong data
 integrity.
@@ -36,7 +36,7 @@ becomes the **primary skill gap** to bridge.
 
 ------------------------------------------------------------------------
 
-### Phase 3: Adaptive Roadmap Generation (Surgical Path)
+### Phase 3: Adaptive Roadmap Generation
 
 The backend uses diagnostic data to generate a personalized learning
 path that respects the user's existing knowledge.
@@ -89,7 +89,7 @@ Certificate**.
 
 ------------------------------------------------------------------------
 
-### Phase 6: Milestone Choice (Cognitive Breather)
+### Phase 6: Milestone Choice 
 
 To prevent learning fatigue, the system introduces a voluntary pause
 point after certification.
@@ -138,13 +138,3 @@ apply skills in realistic professional scenarios.
 
 ------------------------------------------------------------------------
 
-## Outcome
-
-The Adaptive Career Pipeline ensures that learners do not simply
-complete courses but **demonstrate verified professional competency**.
-The system delivers:
-
--   Personalized learning pathways
--   Objective skill verification
--   Reduced redundancy in training
--   Structured progression toward professional expertise

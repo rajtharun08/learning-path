@@ -1,4 +1,5 @@
 import os
+import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
@@ -13,6 +14,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# His YouTube platform service URL
+HIS_SERVICE_URL = "http://youtube-platform:8000"
+
 # DATA MODELS
 
 class UserProfile(BaseModel):
@@ -24,7 +28,7 @@ class HistoryUpdate(BaseModel):
     user_id: str
     course_id: int
 
-# NEW: Assessment models
+# Assessment models
 class DiagnosticAnswer(BaseModel):
     question_id: str
     selected_option: str       # "a", "b", "c", or "d"
@@ -44,30 +48,39 @@ class ResourceCompletion(BaseModel):
     resource_id: int
     skill: str
 
+# Integration models
+class RoadmapComplete(BaseModel):
+    user_id:     str
+    playlist_id: str
+
 # MOCK DB
 
 mock_courses = [
     # Beginner Topics
-    {"id": 1,  "title": "Python Syntax & Logic",         "topic": "Python Basics",       "level": "Beginner",     "rating": 0.95, "provider": "FreeCodeCamp",     "resource_url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
-    {"id": 14, "title": "Git & GitHub Masterclass",      "topic": "Version Control",     "level": "Beginner",     "rating": 0.94, "provider": "Traversy",         "resource_url": "https://www.youtube.com/watch?v=RGOj5yH7evk"},
-    {"id": 6,  "title": "HTML/CSS Crash Course",         "topic": "HTML/CSS Essentials", "level": "Beginner",     "rating": 0.94, "provider": "Traversy",         "resource_url": "https://www.youtube.com/watch?v=gvOivz9skfA"},
+    {"id": 1,  "title": "Python Syntax & Logic",         "topic": "Python Basics",       "level": "Beginner",     "rating": 0.95, "provider": "FreeCodeCamp",      "skill_tags": ["python"],          "resource_url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
+    {"id": 14, "title": "Git & GitHub Masterclass",      "topic": "Version Control",     "level": "Beginner",     "rating": 0.94, "provider": "Traversy",          "skill_tags": ["git"],             "resource_url": "https://www.youtube.com/watch?v=RGOj5yH7evk"},
+    {"id": 6,  "title": "HTML/CSS Crash Course",         "topic": "HTML/CSS Essentials", "level": "Beginner",     "rating": 0.94, "provider": "Traversy",          "skill_tags": ["html", "css"],     "resource_url": "https://www.youtube.com/watch?v=gvOivz9skfA"},
 
     # Intermediate Topics
-    {"id": 3,  "title": "SQL for Backend Devs",          "topic": "Database Integration","level": "Intermediate", "rating": 0.92, "provider": "Mosh",             "resource_url": "https://www.youtube.com/watch?v=HXV3zeQKqGY"},
-    {"id": 15, "title": "Build a REST API with FastAPI", "topic": "API Development",     "level": "Intermediate", "rating": 0.89, "provider": "Tiangolo",         "resource_url": "https://www.youtube.com/watch?v=0sOvCWFmrtA"},
-    {"id": 8,  "title": "Docker for Developers",         "topic": "System Design",       "level": "Intermediate", "rating": 0.93, "provider": "TechWorld with Nana","resource_url": "https://www.youtube.com/watch?v=3c-iKn767wE"},
-    {"id": 16, "title": "Celery & Redis for Tasks",      "topic": "Asynchronous Tasks",  "level": "Intermediate", "rating": 0.87, "provider": "CoreyMS",          "resource_url": "https://www.youtube.com/watch?v=68QWw0Ot4Ng"},
+    {"id": 3,  "title": "SQL for Backend Devs",          "topic": "Database Integration","level": "Intermediate", "rating": 0.92, "provider": "Mosh",              "skill_tags": ["sql"],             "resource_url": "https://www.youtube.com/watch?v=HXV3zeQKqGY"},
+    {"id": 15, "title": "Build a REST API with FastAPI", "topic": "API Development",     "level": "Intermediate", "rating": 0.89, "provider": "Tiangolo",          "skill_tags": ["fastapi", "api"],  "resource_url": "https://www.youtube.com/watch?v=0sOvCWFmrtA"},
+    {"id": 8,  "title": "Docker for Developers",         "topic": "System Design",       "level": "Intermediate", "rating": 0.93, "provider": "TechWorld with Nana","skill_tags": ["docker"],          "resource_url": "https://www.youtube.com/watch?v=3c-iKn767wE"},
+    {"id": 16, "title": "Celery & Redis for Tasks",      "topic": "Asynchronous Tasks",  "level": "Intermediate", "rating": 0.87, "provider": "CoreyMS",           "skill_tags": ["celery", "redis"], "resource_url": "https://www.youtube.com/watch?v=68QWw0Ot4Ng"},
 
     # Advanced Topics
-    {"id": 5,  "title": "Microservices Architecture",    "topic": "System Design",       "level": "Advanced",     "rating": 0.96, "provider": "YouTube",          "resource_url": "https://www.youtube.com/watch?v=123456"},
-    {"id": 9,  "title": "AWS Cloud Architecture",        "topic": "Cloud Architecture",  "level": "Advanced",     "rating": 0.97, "provider": "AWS Training",     "resource_url": "https://www.youtube.com/watch?v=ia7Mte8q08I"},
-    {"id": 17, "title": "JWT Authentication Patterns",   "topic": "Security Patterns",   "level": "Advanced",     "rating": 0.93, "provider": "Auth0",            "resource_url": "https://www.youtube.com/watch?v=7Q17ubqLfaM"},
-    {"id": 10, "title": "Redis Caching & Performance",   "topic": "Performance Tuning",  "level": "Advanced",     "rating": 0.94, "provider": "Redis University", "resource_url": "https://www.youtube.com/watch?v=OqZz90v-m5M"},
+    {"id": 5,  "title": "Microservices Architecture",    "topic": "System Design",       "level": "Advanced",     "rating": 0.96, "provider": "YouTube",           "skill_tags": ["microservices"],   "resource_url": "https://www.youtube.com/watch?v=123456"},
+    {"id": 9,  "title": "AWS Cloud Architecture",        "topic": "Cloud Architecture",  "level": "Advanced",     "rating": 0.97, "provider": "AWS Training",      "skill_tags": ["aws", "cloud"],    "resource_url": "https://www.youtube.com/watch?v=ia7Mte8q08I"},
+    {"id": 17, "title": "JWT Authentication Patterns",   "topic": "Security Patterns",   "level": "Advanced",     "rating": 0.93, "provider": "Auth0",             "skill_tags": ["security", "jwt"], "resource_url": "https://www.youtube.com/watch?v=7Q17ubqLfaM"},
+    {"id": 10, "title": "Redis Caching & Performance",   "topic": "Performance Tuning",  "level": "Advanced",     "rating": 0.94, "provider": "Redis University",   "skill_tags": ["redis", "cache"],  "resource_url": "https://www.youtube.com/watch?v=OqZz90v-m5M"},
 ]
 
 # In-memory stores
-user_histories = {}       # { user_id: [course_id, ...] }
-user_assessments = {}     # { user_id: { skill: { verified, score, gap, resources_done, delta_passed } } }
+user_histories   = {}   # { user_id: [course_id, ...] }
+user_assessments = {}   # { user_id: { skill: { verified, score, gap, resources_done, delta_passed } } }
+
+# Stores real playlists fetched from his system
+# { playlist_id: { title, skill_tags, level, provider, popularity_score } }
+real_playlists = {}
 
 # Diagnostic question bank — 5 questions per skill
 diagnostic_questions = {
@@ -101,7 +114,7 @@ diagnostic_questions = {
     ],
 }
 
-#  Delta test question bank — 5 different questions per skill (harder)
+# Delta test question bank — 5 different questions per skill (harder)
 delta_questions = {
     "Python": [
         {"id": "dpy_1", "question": "What does *args do in a function signature?",                 "options": {"a": "Keyword arguments", "b": "Variable positional arguments", "c": "Pointer args", "d": "Required args"}, "answer": "b"},
@@ -136,20 +149,20 @@ delta_questions = {
 # Gap bridge resources (learning material for failed skills)
 gap_resources = {
     "Python": [
-        {"id": 501, "title": "Python Full Course",       "provider": "FreeCodeCamp", "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
-        {"id": 502, "title": "Python OOP Tutorial",      "provider": "Corey Schafer", "url": "https://www.youtube.com/watch?v=ZDa-Z5JzLYM"},
+        {"id": 501, "title": "Python Full Course",       "provider": "FreeCodeCamp",      "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
+        {"id": 502, "title": "Python OOP Tutorial",      "provider": "Corey Schafer",     "url": "https://www.youtube.com/watch?v=ZDa-Z5JzLYM"},
     ],
     "SQL": [
-        {"id": 503, "title": "SQL for Beginners",        "provider": "Mosh",          "url": "https://www.youtube.com/watch?v=HXV3zeQKqGY"},
-        {"id": 504, "title": "Advanced SQL Queries",     "provider": "Corey Schafer", "url": "https://www.youtube.com/watch?v=9yeOJ0ZMUYw"},
+        {"id": 503, "title": "SQL for Beginners",        "provider": "Mosh",              "url": "https://www.youtube.com/watch?v=HXV3zeQKqGY"},
+        {"id": 504, "title": "Advanced SQL Queries",     "provider": "Corey Schafer",     "url": "https://www.youtube.com/watch?v=9yeOJ0ZMUYw"},
     ],
     "FastAPI": [
-        {"id": 505, "title": "FastAPI Crash Course",     "provider": "Traversy",      "url": "https://www.youtube.com/watch?v=0sOvCWFmrtA"},
-        {"id": 506, "title": "FastAPI with PostgreSQL",  "provider": "Tiangolo",      "url": "https://www.youtube.com/watch?v=398Yjhpkn5g"},
+        {"id": 505, "title": "FastAPI Crash Course",     "provider": "Traversy",          "url": "https://www.youtube.com/watch?v=0sOvCWFmrtA"},
+        {"id": 506, "title": "FastAPI with PostgreSQL",  "provider": "Tiangolo",          "url": "https://www.youtube.com/watch?v=398Yjhpkn5g"},
     ],
     "Docker": [
-        {"id": 507, "title": "Docker for Developers",   "provider": "TechWorld with Nana", "url": "https://www.youtube.com/watch?v=3c-iKn767wE"},
-        {"id": 508, "title": "Docker Compose Mastery",  "provider": "NetworkChuck",   "url": "https://www.youtube.com/watch?v=MVIcrmeV_6c"},
+        {"id": 507, "title": "Docker for Developers",   "provider": "TechWorld with Nana","url": "https://www.youtube.com/watch?v=3c-iKn767wE"},
+        {"id": 508, "title": "Docker Compose Mastery",  "provider": "NetworkChuck",       "url": "https://www.youtube.com/watch?v=MVIcrmeV_6c"},
     ],
 }
 
@@ -160,11 +173,14 @@ role_skills_map = {
     "fullstack developer": ["Python", "SQL", "FastAPI", "Docker"],
 }
 
-# SCORING ALGORITHM 
-# Weights: Skill(40%), Rating(30%), Level(20%), Provider(10%)
 
-def calculate_score(course, target_level):
-    r = course["rating"]
+# SCORING ALGORITHM
+# Weights: Skill Relevance(40%), Rating(30%), Level Match(20%), Provider Authority(10%)
+
+
+def calculate_score(course, target_level, popularity_score: float = None):
+    # Use his popularity score if available, else use hardcoded rating
+    r = popularity_score if popularity_score is not None else course["rating"]
     l = 1.0 if course["level"].lower() == target_level.lower() else 0.5
     s = 1.0  # Topic Relevance
     p = 1.0 if course["provider"] in ["FreeCodeCamp", "Mosh", "Tiangolo", "AWS Training"] else 0.8
@@ -174,8 +190,8 @@ def calculate_score(course, target_level):
 
 # Grading helper used by both diagnostic and delta endpoints
 def grade_answers(submitted: List[DiagnosticAnswer], question_bank: List[dict]) -> dict:
-    bank_map = {q["id"]: q for q in question_bank}
-    correct  = 0
+    bank_map  = {q["id"]: q for q in question_bank}
+    correct   = 0
     breakdown = []
     for ans in submitted:
         q = bank_map.get(ans.question_id)
@@ -199,26 +215,26 @@ def get_skill_state(user_id: str, skill: str) -> dict:
         user_assessments[user_id] = {}
     if skill not in user_assessments[user_id]:
         user_assessments[user_id][skill] = {
-            "verified":          False,
-            "score_pct":         None,
-            "gap":               False,
-            "resources_done":    [],
-            "delta_passed":      False,
-            "diagnostic_done":   False,
+            "verified":        False,
+            "score_pct":       None,
+            "gap":             False,
+            "resources_done":  [],
+            "delta_passed":    False,
+            "diagnostic_done": False,
         }
     return user_assessments[user_id][skill]
 
-# OLD POC ENDPOINTS — COMPLETELY UNCHANGED
+# EXISTING ENDPOINTS 
 
 @app.post("/api/v1/generate-path")
 async def generate_path(profile: UserProfile):
     history = user_histories.get(profile.user_id, [])
 
     # Curriculum
-    beginner_be    = ["Python Basics", "Database Integration", "API Development", "Version Control"]
+    beginner_be     = ["Python Basics", "Database Integration", "API Development", "Version Control"]
     intermediate_be = ["API Development", "System Design", "Docker & Containers", "Asynchronous Tasks"]
-    advanced_be    = ["System Design", "Cloud Architecture", "Performance Tuning", "Security Patterns"]
-    frontend_path  = ["HTML/CSS Essentials", "JavaScript Basics", "React Framework", "State Management"]
+    advanced_be     = ["System Design", "Cloud Architecture", "Performance Tuning", "Security Patterns"]
+    frontend_path   = ["HTML/CSS Essentials", "JavaScript Basics", "React Framework", "State Management"]
 
     # AutoPromotion Logic
     if "backend" in profile.role.lower():
@@ -226,15 +242,15 @@ async def generate_path(profile: UserProfile):
         has_int = all(any(pill.lower() in t.lower() for pill in profile.current_skills) for t in intermediate_be)
 
         if has_beg and has_int:
-            topics, target_level, engine = advanced_be, "Advanced", "AI-Driven - Expert Mode"
+            topics, target_level, engine = advanced_be,     "Advanced",     "AI-Driven - Expert Mode"
         elif has_beg:
             topics, target_level, engine = intermediate_be, "Intermediate", "AI-Driven - Auto-Promoted"
         else:
-            topics, target_level, engine = beginner_be, "Beginner", "Rules-Based"
+            topics, target_level, engine = beginner_be,     "Beginner",     "Rules-Based"
     else:
         topics, target_level, engine = frontend_path, "Beginner", "Rules-Based"
 
-    roadmap     = []
+    roadmap      = []
     active_found = False
 
     for i, topic in enumerate(topics):
@@ -257,13 +273,18 @@ async def generate_path(profile: UserProfile):
         if status in ["completed", "review", "active"]:
             available = [c for c in mock_courses if c["topic"] == topic]
             for c in available:
+                # Use real popularity score from his system if available
+                pop_score = None
+                if c["resource_url"] in real_playlists:
+                    pop_score = real_playlists[c["resource_url"]].get("popularity_score")
+
                 courses.append({
-                    "course_id":   c["id"],
-                    "title":       c["title"],
-                    "provider":    c.get("provider", "Unknown"),
+                    "course_id":    c["id"],
+                    "title":        c["title"],
+                    "provider":     c.get("provider", "Unknown"),
                     "resource_url": c["resource_url"],
-                    "match_score": calculate_score(c, target_level),
-                    "is_finished": c["id"] in history or is_pill_skipped,
+                    "match_score":  calculate_score(c, target_level, pop_score),
+                    "is_finished":  c["id"] in history or is_pill_skipped,
                 })
             if status == "active":
                 courses = sorted(courses, key=lambda x: x["match_score"], reverse=True)
@@ -301,11 +322,11 @@ async def get_history(user_id: str):
     completed   = [c for c in mock_courses if c["id"] in history_ids]
     return {"user_id": user_id, "total": len(completed), "courses": completed}
 
-# ASSESSMENT ENDPOINTS
-# These are additive — nothing above changes.
+
+# ASSESSMENT ENDPOINTS 
+
 # STEP 1 — Get diagnostic questions for a skill
 # GET /api/v1/assessment/questions?user_id=u1&skill=Python
-# Frontend: renders these as an MCQ screen before showing the roadmap
 
 @app.get("/api/v1/assessment/questions")
 async def get_diagnostic_questions(user_id: str, skill: str):
@@ -317,17 +338,12 @@ async def get_diagnostic_questions(user_id: str, skill: str):
     if state["diagnostic_done"]:
         raise HTTPException(status_code=400, detail=f"Diagnostic for '{skill}' already completed.")
 
-    # Return questions without answers
     safe = [{"id": q["id"], "question": q["question"], "options": q["options"]} for q in questions]
     return {"user_id": user_id, "skill": skill, "questions": safe}
 
 
-
 # STEP 2 — Submit diagnostic answers
 # POST /api/v1/assessment/submit
-# Frontend: submits answers after user completes the MCQ screen
-# Backend returns: score, verified/gap badge, gap resources if needed
-# Pass threshold: 60%
 
 @app.post("/api/v1/assessment/submit")
 async def submit_diagnostic(submission: DiagnosticSubmission):
@@ -339,42 +355,37 @@ async def submit_diagnostic(submission: DiagnosticSubmission):
     if state["diagnostic_done"]:
         raise HTTPException(status_code=400, detail=f"Diagnostic for '{submission.skill}' already completed.")
 
-    grading   = grade_answers(submission.answers, questions)
-    is_gap    = grading["score_pct"] < 60
-    verified  = not is_gap
+    grading  = grade_answers(submission.answers, questions)
+    is_gap   = grading["score_pct"] < 60
+    verified = not is_gap
 
-    # Update state
     state["diagnostic_done"] = True
     state["score_pct"]       = grading["score_pct"]
     state["gap"]             = is_gap
     state["verified"]        = verified
 
-    # If gap: return bridge resources they need to study before delta test
     resources = []
     if is_gap:
         resources = gap_resources.get(submission.skill, [])
 
     return {
-        "user_id":    submission.user_id,
-        "skill":      submission.skill,
-        "score_pct":  grading["score_pct"],
-        "badge":      "verified" if verified else "unverified",
-        "result":     "passed" if verified else "gap_detected",
-        "message":    (
+        "user_id":       submission.user_id,
+        "skill":         submission.skill,
+        "score_pct":     grading["score_pct"],
+        "badge":         "verified" if verified else "unverified",
+        "result":        "passed" if verified else "gap_detected",
+        "message":       (
             f"'{submission.skill}' verified! You can skip this in your roadmap."
             if verified else
             f"Gap detected in '{submission.skill}'. Study the resources below, then take the delta test."
         ),
-        "gap_resources":   resources,          # Empty if passed; populated if gap
-        "breakdown":       grading["breakdown"],
+        "gap_resources": resources,
+        "breakdown":     grading["breakdown"],
     }
-
 
 
 # STEP 3 — Mark a gap resource as completed
 # POST /api/v1/assessment/resource-done
-# Frontend: calls this when user clicks "Mark as Done" on a gap resource
-# Once all resources for a skill are done, delta test unlocks
 
 @app.post("/api/v1/assessment/resource-done")
 async def mark_resource_done(completion: ResourceCompletion):
@@ -390,20 +401,17 @@ async def mark_resource_done(completion: ResourceCompletion):
     all_done         = all(rid in state["resources_done"] for rid in all_resource_ids)
 
     return {
-        "user_id":            completion.user_id,
-        "skill":              completion.skill,
-        "resource_id":        completion.resource_id,
+        "user_id":             completion.user_id,
+        "skill":               completion.skill,
+        "resource_id":         completion.resource_id,
         "resources_completed": state["resources_done"],
         "delta_test_unlocked": all_done,
-        "message":            "Delta test unlocked! Test your knowledge now." if all_done else "Keep going — complete all resources to unlock the delta test.",
+        "message":             "Delta test unlocked! Test your knowledge now." if all_done else "Keep going — complete all resources to unlock the delta test.",
     }
-
 
 
 # STEP 4 — Get delta test questions
 # GET /api/v1/assessment/delta/questions?user_id=u1&skill=Python
-# Frontend: same MCQ screen, just different questions
-# Only available after all gap resources are completed
 
 @app.get("/api/v1/assessment/delta/questions")
 async def get_delta_questions(user_id: str, skill: str):
@@ -426,12 +434,8 @@ async def get_delta_questions(user_id: str, skill: str):
     return {"user_id": user_id, "skill": skill, "type": "Delta Test", "questions": safe}
 
 
-
 # STEP 5 — Submit delta test
 # POST /api/v1/assessment/delta/submit
-# Frontend: submits delta answers
-# Pass (>=60%) → skill flips from unverified → verified
-# Verified skills feed back into /generate-path as completed steps
 
 @app.post("/api/v1/assessment/delta/submit")
 async def submit_delta(submission: DeltaTestSubmission):
@@ -466,11 +470,8 @@ async def submit_delta(submission: DeltaTestSubmission):
     }
 
 
-
 # BONUS — Full skill status for a user
 # GET /api/v1/assessment/status/{user_id}
-# Frontend: use this to show the pre-assessment summary screen
-# Shows all skills, their badges, scores, and what's still pending
 
 @app.get("/api/v1/assessment/status/{user_id}")
 async def get_assessment_status(user_id: str):
@@ -487,7 +488,135 @@ async def get_assessment_status(user_id: str):
         })
 
     return {
-        "user_id":        user_id,
+        "user_id":         user_id,
         "skills_assessed": summary,
-        "all_verified":   all(s["badge"] == "verified" for s in summary) if summary else False,
+        "all_verified":    all(s["badge"] == "verified" for s in summary) if summary else False,
     }
+
+
+
+# INTEGRATION ENDPOINTS 
+
+@app.get("/api/v1/roadmap/next")
+async def get_next_roadmap_step(user_id: str, playlist_id: str):
+    history      = user_histories.get(user_id, [])
+    skills_state = user_assessments.get(user_id, {})
+
+    # Get all verified skills — these topics will be skipped
+    verified_skills = [
+        skill.lower() for skill, state in skills_state.items()
+        if state.get("verified")
+    ]
+
+    # Find next course not in history and not already verified
+    for course in mock_courses:
+        course_id = course["id"]
+        topic     = course["topic"].lower()
+
+        # Skip if already completed
+        if course_id in history:
+            continue
+
+        # Skip if skill is already verified
+        if any(skill in topic for skill in verified_skills):
+            continue
+
+        return {
+            "user_id":     user_id,
+            "playlist_id": course.get("resource_url", ""),
+            "topic":       course["topic"],
+            "level":       course["level"],
+            "skill_tags":  course.get("skill_tags", []),
+            "reason":      "roadmap_next"
+        }
+
+    return {
+        "user_id":     user_id,
+        "playlist_id": None,
+        "reason":      "roadmap_complete",
+        "message":     "User has completed all roadmap steps"
+    }
+
+
+# POST /api/v1/roadmap/complete
+
+@app.post("/api/v1/roadmap/complete")
+async def mark_roadmap_step_complete(data: RoadmapComplete):
+    if data.user_id not in user_histories:
+        user_histories[data.user_id] = []
+
+    # Match playlist back to a course and mark it done
+    for course in mock_courses:
+        if course.get("resource_url", "") == data.playlist_id:
+            if course["id"] not in user_histories[data.user_id]:
+                user_histories[data.user_id].append(course["id"])
+            return {
+                "status":      "success",
+                "user_id":     data.user_id,
+                "course_done": course["title"],
+                "topic":       course["topic"],
+                "message":     "Roadmap step complete. Next step unlocked."
+            }
+
+    return {
+        "status":  "not_found",
+        "message": "No matching course found for this playlist"
+    }
+
+
+# Fetch real playlists and popularity scores 
+# Replaces mock rating with real popularity data from analytics
+# GET /api/v1/sync-playlists
+
+@app.get("/api/v1/sync-playlists")
+async def sync_playlists_from_his_system():
+    try:
+        # Get all  real playlists
+        playlists_resp = httpx.get(
+            f"{HIS_SERVICE_URL}/playlist/all",
+            timeout=5.0
+        )
+
+        # Get popularity scores from analytics service
+        popular_resp = httpx.get(
+            f"{HIS_SERVICE_URL}/analytics/popular?limit=10",
+            timeout=5.0
+        )
+
+        if playlists_resp.status_code == 200:
+            playlists = playlists_resp.json()
+            popular   = popular_resp.json() if popular_resp.status_code == 200 else []
+
+            # Build popularity lookup
+            # Normalize score to 0-1 range for scoring algorithm
+            max_pop = max([p.get("play_count", 1) for p in popular], default=1)
+            pop_map = {
+                p["video_id"]: round(p.get("play_count", 0) / max_pop, 2)
+                for p in popular
+            }
+
+            # Store real playlists with popularity scores
+            for playlist in playlists.get("items", []):
+                pid = playlist.get("youtube_playlist_id", "")
+                real_playlists[pid] = {
+                    "title":            playlist.get("title", ""),
+                    "skill_tags":       playlist.get("skill_tags", []),
+                    "level":            playlist.get("level", "Beginner"),
+                    "provider":         playlist.get("provider", ""),
+                    "popularity_score": pop_map.get(pid, 0.8),
+                }
+
+            return {
+                "status":          "success",
+                "playlists_synced": len(real_playlists),
+                "message":         "Real playlists and popularity scores loaded successfully"
+            }
+
+    except Exception as e:
+        return {
+            "status":  "error",
+            "message": str(e),
+            "note":    "Falling back to mock course data"
+        }
+
+    return {"status": "failed", "message": "Could not reach his service"}

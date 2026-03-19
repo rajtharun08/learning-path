@@ -39,71 +39,40 @@ erDiagram
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
-    DIAGNOSTIC_QUESTIONS {
+    QUESTIONS {
         VARCHAR id PK
         VARCHAR skill
         TEXT question_text
         VARCHAR test_type
         INTEGER sort_order
+        VARCHAR option_a
+        VARCHAR option_b
+        VARCHAR option_c
+        VARCHAR option_d
         VARCHAR correct_option
         TIMESTAMP created_at
     }
-    QUESTION_OPTIONS {
-        UUID id PK
-        VARCHAR question_id FK
-        VARCHAR option_key
-        TEXT option_text
-        BOOLEAN is_correct
-        INTEGER sort_order
-    }
-    DIAGNOSTIC_ATTEMPTS {
+    SKILL_ATTEMPTS {
         UUID id PK
         UUID user_id FK
         VARCHAR skill
+        VARCHAR test_type
         NUMERIC score_pct
         INTEGER correct_answers
         INTEGER total_questions
         BOOLEAN passed
         VARCHAR result
+        INTEGER attempt_number
         TIMESTAMP started_at
         TIMESTAMP submitted_at
     }
-    DIAGNOSTIC_ANSWERS {
+    SKILL_ANSWERS {
         UUID id PK
         UUID attempt_id FK
         VARCHAR question_id FK
+        VARCHAR test_type
         VARCHAR selected_option
         BOOLEAN is_correct
-    }
-    DELTA_ATTEMPTS {
-        UUID id PK
-        UUID user_id FK
-        VARCHAR skill
-        NUMERIC score_pct
-        INTEGER correct_answers
-        INTEGER total_questions
-        BOOLEAN passed
-        INTEGER attempt_number
-        TIMESTAMP submitted_at
-    }
-    DELTA_ANSWERS {
-        UUID id PK
-        UUID attempt_id FK
-        VARCHAR question_id FK
-        VARCHAR selected_option
-        BOOLEAN is_correct
-    }
-    COURSES {
-        INTEGER id PK
-        VARCHAR title
-        VARCHAR topic
-        VARCHAR level
-        NUMERIC rating
-        VARCHAR provider
-        TEXT skill_tags
-        TEXT resource_url
-        BOOLEAN is_active
-        TIMESTAMP created_at
     }
     GAP_RESOURCES {
         INTEGER id PK
@@ -123,58 +92,40 @@ erDiagram
     USER_COURSE_HISTORY {
         UUID id PK
         UUID user_id FK
-        INTEGER course_id FK
+        INTEGER course_id
         TEXT playlist_id
         VARCHAR completed_via
         TIMESTAMP completed_at
     }
-    REAL_PLAYLISTS {
-        UUID id PK
-        VARCHAR youtube_playlist_id
-        VARCHAR title
-        TEXT skill_tags
-        VARCHAR level
-        VARCHAR provider
-        NUMERIC popularity_score
-        TIMESTAMP synced_at
-    }
 
     USERS ||--o{ USER_SKILL_ASSESSMENTS : "has"
-    USERS ||--o{ DIAGNOSTIC_ATTEMPTS : "takes"
-    USERS ||--o{ DELTA_ATTEMPTS : "takes"
+    USERS ||--o{ SKILL_ATTEMPTS : "takes"
     USERS ||--o{ USER_COURSE_HISTORY : "completes"
     USERS ||--o{ USER_GAP_RESOURCES : "studies"
-    DIAGNOSTIC_ATTEMPTS ||--o{ DIAGNOSTIC_ANSWERS : "contains"
-    DELTA_ATTEMPTS ||--o{ DELTA_ANSWERS : "contains"
-    DIAGNOSTIC_QUESTIONS ||--o{ QUESTION_OPTIONS : "has"
-    DIAGNOSTIC_QUESTIONS ||--o{ DIAGNOSTIC_ANSWERS : "referenced in"
-    DIAGNOSTIC_QUESTIONS ||--o{ DELTA_ANSWERS : "referenced in"
+    SKILL_ATTEMPTS ||--o{ SKILL_ANSWERS : "contains"
+    QUESTIONS ||--o{ SKILL_ANSWERS : "referenced in"
     GAP_RESOURCES ||--o{ USER_GAP_RESOURCES : "completed via"
-    COURSES ||--o{ USER_COURSE_HISTORY : "recorded in"
 ```
 
 ---
 
 ## Database Tables Overview
 
-The database is structured in **4 main domains:**
+The database uses **8 tables** structured across 4 domains:
 
 | Domain | Tables | Purpose |
 |---|---|---|
 | **User Domain** | USERS | User identity and goal tracking |
-| **Assessment Domain** | USER_SKILL_ASSESSMENTS, DIAGNOSTIC_QUESTIONS, QUESTION_OPTIONS, DIAGNOSTIC_ATTEMPTS, DIAGNOSTIC_ANSWERS, DELTA_ATTEMPTS, DELTA_ANSWERS | Skill verification tests and results |
-| **Course Domain** | COURSES, GAP_RESOURCES, REAL_PLAYLISTS | Course catalog and bridge study material |
-| **History Domain** | USER_COURSE_HISTORY, USER_GAP_RESOURCES | Completion tracking and progress |
+| **Assessment Domain** | USER_SKILL_ASSESSMENTS, QUESTIONS, SKILL_ATTEMPTS, SKILL_ANSWERS | Skill verification tests and results |
+| **Course Domain** | GAP_RESOURCES | Bridge study material per skill |
+| **History Domain** | USER_GAP_RESOURCES, USER_COURSE_HISTORY | Completion tracking and progress |
 
-Each assessment domain follows this hierarchical pattern:
+### Design Decisions
 
-```
-Skill Assessment (per user per skill)
-    └── Diagnostic Attempt
-            └── Diagnostic Answers (5 answers)
-    └── Delta Attempt (only if gap detected)
-            └── Delta Answers (5 answers)
-```
+- `SKILL_ATTEMPTS` combines diagnostic and delta attempts — distinguished by `test_type` column
+- `SKILL_ANSWERS` combines diagnostic and delta answers — distinguished by `test_type` column
+- `QUESTIONS` stores all 4 options as inline columns (`option_a`, `option_b`, `option_c`, `option_d`) since every question always has exactly 4 options — no need for a separate options table
+- `REAL_PLAYLISTS` is kept as an in-memory dictionary for POC — not needed as a table until production
 
 ---
 
@@ -230,7 +181,7 @@ created_at:      2024-01-15 10:30:00+00
 **Why this table exists:**
 - Central state store for all skill verification logic
 - Drives roadmap generation — verified skills are skipped automatically
-- One row per user per skill — clean, queryable, and reportable
+- One row per user per skill — clean and queryable
 
 **Sample Row:**
 ```
@@ -247,150 +198,94 @@ badge:            verified
 
 ---
 
-### 3. COURSES Table
+### 3. QUESTIONS Table
 
-**Purpose:** Master catalog of all available courses. Used by the scoring algorithm to rank and recommend courses.
-
-| Column | Type | Constraints | Explanation |
-|---|---|---|---|
-| id | INTEGER | Primary Key | Unique course identifier |
-| title | VARCHAR(255) | NOT NULL | Course display name |
-| topic | VARCHAR(100) | NOT NULL, INDEXED | Curriculum topic e.g. `Python Basics`, `API Development` |
-| level | VARCHAR(20) | NOT NULL | Difficulty: Beginner / Intermediate / Advanced |
-| rating | NUMERIC(4,2) | NOT NULL | Provider quality rating 0.0 to 1.0 |
-| provider | VARCHAR(100) | NOT NULL | Course creator e.g. `FreeCodeCamp`, `Mosh`, `Tiangolo` |
-| skill_tags | TEXT | NOT NULL | Comma-separated skill tags e.g. `python,fastapi` |
-| resource_url | TEXT | NOT NULL | YouTube video or playlist URL |
-| is_active | BOOLEAN | NOT NULL, DEFAULT=TRUE | Whether course is available in roadmap |
-| created_at | TIMESTAMP | NOT NULL, DEFAULT=NOW() | Record creation timestamp |
-
-**Why this table exists:**
-- Single source of truth for all course content
-- `topic` links courses to curriculum roadmap steps
-- `skill_tags` enables skill-to-course matching for scoring algorithm
-- `rating` feeds into 30% weight of scoring formula
-
-**Sample Row:**
-```
-id:           1
-title:        Python Syntax & Logic
-topic:        Python Basics
-level:        Beginner
-rating:       0.95
-provider:     FreeCodeCamp
-skill_tags:   python
-resource_url: https://www.youtube.com/watch?v=rfscVS0vtbw
-is_active:    true
-```
-
----
-
-### 4. DIAGNOSTIC_QUESTIONS Table
-
-**Purpose:** MCQ question bank for both diagnostic and delta tests. 5 questions per skill per test type.
+**Purpose:** Stores all MCQ questions for both diagnostic and delta tests. Options stored as inline columns since every question always has exactly 4 options.
 
 | Column | Type | Constraints | Explanation |
 |---|---|---|---|
-| id | VARCHAR(20) | Primary Key | Question identifier e.g. `py_1`, `sql_3`, `dpy_1` |
+| id | VARCHAR(20) | Primary Key | Question identifier e.g. `py_1`, `dpy_1` |
 | skill | VARCHAR(100) | NOT NULL, INDEXED | Skill this question tests e.g. `Python` |
 | question_text | TEXT | NOT NULL | The actual question prompt |
 | test_type | VARCHAR(20) | NOT NULL, DEFAULT=`diagnostic` | Type: `diagnostic` or `delta` |
 | sort_order | INTEGER | NOT NULL | Display order within skill (1 to 5) |
-| correct_option | VARCHAR(1) | NOT NULL | Correct answer key: `a`, `b`, `c`, or `d` |
+| option_a | TEXT | NOT NULL | Option A text |
+| option_b | TEXT | NOT NULL | Option B text |
+| option_c | TEXT | NOT NULL | Option C text |
+| option_d | TEXT | NOT NULL | Option D text |
+| correct_option | VARCHAR(1) | NOT NULL | Correct answer: `a`, `b`, `c`, or `d` |
 | created_at | TIMESTAMP | NOT NULL, DEFAULT=NOW() | Record creation timestamp |
 
 **Why this table exists:**
-- Separates question content from attempt data
-- `test_type` distinguishes diagnostic (standard) from delta (harder) questions
+- Single table for all questions — simpler than separate diagnostic/delta tables
+- Options stored inline since they are always exactly 4 — no need for a separate options table
+- `test_type` distinguishes standard diagnostic from harder delta questions
 - `correct_option` enables fully automated grading
 
-**Sample Row:**
+**Sample Rows:**
 ```
-id:             py_1
-skill:          Python
-question_text:  What keyword is used to define a generator in Python?
-test_type:      diagnostic
-sort_order:     1
+id: py_1, skill: Python, test_type: diagnostic, sort_order: 1
+question_text: What keyword is used to define a generator in Python?
+option_a: return  option_b: yield  option_c: async  option_d: pass
+correct_option: b
+
+id: dpy_1, skill: Python, test_type: delta, sort_order: 1
+question_text: What does *args do in a function signature?
+option_a: Keyword arguments  option_b: Variable positional arguments
+option_c: Pointer args  option_d: Required args
 correct_option: b
 ```
 
 ---
 
-### 5. QUESTION_OPTIONS Table
+### 4. SKILL_ATTEMPTS Table
 
-**Purpose:** Four MCQ answer options for each question. Supports automated grading.
-
-| Column | Type | Constraints | Explanation |
-|---|---|---|---|
-| id | UUID | Primary Key | Unique option identifier |
-| question_id | VARCHAR(20) | FK (diagnostic_questions.id), NOT NULL, INDEXED | Parent question |
-| option_key | VARCHAR(1) | NOT NULL | Option label: `a`, `b`, `c`, or `d` |
-| option_text | TEXT | NOT NULL | The option content shown to user |
-| is_correct | BOOLEAN | NOT NULL, DEFAULT=FALSE | Whether this is the correct answer |
-| sort_order | INTEGER | NOT NULL | Display order (1=a, 2=b, 3=c, 4=d) |
-
-**Why this table exists:**
-- Normalizes options into separate rows for clean querying
-- `is_correct` enables automated grading without hardcoding answers
-- Follows relational best practices — one question to many options (1:N)
-
-**Sample Rows (for question py_1):**
-
-| option_key | option_text | is_correct |
-|---|---|---|
-| a | return | false |
-| b | yield | **true** |
-| c | async | false |
-| d | pass | false |
-
----
-
-### 6. DIAGNOSTIC_ATTEMPTS Table
-
-**Purpose:** Records each user's diagnostic test attempt per skill. Tracks score and pass/fail outcome.
+**Purpose:** Records every test attempt — both diagnostic and delta — in a single table. Distinguished by `test_type` column.
 
 | Column | Type | Constraints | Explanation |
 |---|---|---|---|
 | id | UUID | Primary Key | Unique attempt identifier |
 | user_id | UUID | FK (users.id), NOT NULL, INDEXED | User who took the test |
 | skill | VARCHAR(100) | NOT NULL, INDEXED | Skill being tested |
+| test_type | VARCHAR(20) | NOT NULL | Type: `diagnostic` or `delta` |
 | score_pct | NUMERIC(5,2) | NOT NULL | Final score percentage (0 to 100) |
 | correct_answers | INTEGER | NOT NULL, DEFAULT=0 | Number of correct answers |
 | total_questions | INTEGER | NOT NULL, DEFAULT=5 | Total questions in test |
 | passed | BOOLEAN | NOT NULL | True if score_pct >= 60 |
 | result | VARCHAR(20) | NOT NULL | `passed` or `gap_detected` |
+| attempt_number | INTEGER | NOT NULL, DEFAULT=1 | Which attempt this is (for delta retries) |
 | started_at | TIMESTAMP | NOT NULL | When user started the test |
 | submitted_at | TIMESTAMP | NULLABLE | When user submitted answers |
 
 **Why this table exists:**
-- Immutable record of each diagnostic attempt
-- `passed` field drives roadmap generation logic
-- Separates attempt metadata from individual question answers
+- Combines diagnostic and delta attempts — both have identical structure
+- `test_type` makes it easy to query just diagnostic or just delta attempts
+- `attempt_number` tracks delta retries — user can retry delta multiple times
+- Pass on delta flips skill from gap to verified in USER_SKILL_ASSESSMENTS
 
-**Sample Row:**
+**Sample Rows:**
 ```
-id:               aa0e8400-e29b-41d4-a716-446655440009
-user_id:          550e8400-e29b-41d4-a716-446655440001
-skill:            Python
-score_pct:        80.00
-correct_answers:  4
-total_questions:  5
-passed:           true
-result:           passed
-submitted_at:     2024-01-20 14:10:30+00
+Diagnostic attempt:
+user_id: u1, skill: Python, test_type: diagnostic
+score_pct: 80.00, passed: true, result: passed, attempt_number: 1
+
+Delta attempt (after gap):
+user_id: u1, skill: SQL, test_type: delta
+score_pct: 80.00, passed: true, result: passed, attempt_number: 1
 ```
 
 ---
 
-### 7. DIAGNOSTIC_ANSWERS Table
+### 5. SKILL_ANSWERS Table
 
-**Purpose:** Individual answer records for each question in a diagnostic attempt.
+**Purpose:** Individual answer records for every question in every attempt — both diagnostic and delta.
 
 | Column | Type | Constraints | Explanation |
 |---|---|---|---|
 | id | UUID | Primary Key | Unique answer record |
-| attempt_id | UUID | FK (diagnostic_attempts.id), NOT NULL, INDEXED | Parent attempt |
-| question_id | VARCHAR(20) | FK (diagnostic_questions.id), NOT NULL | Which question |
+| attempt_id | UUID | FK (skill_attempts.id), NOT NULL, INDEXED | Parent attempt |
+| question_id | VARCHAR(20) | FK (questions.id), NOT NULL | Which question |
+| test_type | VARCHAR(20) | NOT NULL | Type: `diagnostic` or `delta` |
 | selected_option | VARCHAR(1) | NOT NULL | Option selected: `a`, `b`, `c`, or `d` |
 | is_correct | BOOLEAN | NOT NULL | Whether selected option was correct |
 
@@ -398,56 +293,18 @@ submitted_at:     2024-01-20 14:10:30+00
 - Granular answer data for review and analytics
 - Enables per-question performance analysis
 - Can power future sub-topic gap detection
+- Combines diagnostic and delta answers — same structure, distinguished by `test_type`
 
 **Sample Rows:**
 ```
-question_id: py_1, selected_option: b, is_correct: true
-question_id: py_2, selected_option: c, is_correct: true
-question_id: py_3, selected_option: a, is_correct: true
-question_id: py_4, selected_option: b, is_correct: true
-question_id: py_5, selected_option: a, is_correct: false
+attempt_id: aa01..., question_id: py_1, test_type: diagnostic, selected_option: b, is_correct: true
+attempt_id: aa01..., question_id: py_2, test_type: diagnostic, selected_option: a, is_correct: false
+attempt_id: bb01..., question_id: dpy_1, test_type: delta, selected_option: b, is_correct: true
 ```
 
 ---
 
-### 8. DELTA_ATTEMPTS Table
-
-**Purpose:** Records each user's delta test attempt per gap skill. Only taken after all gap resources are completed.
-
-| Column | Type | Constraints | Explanation |
-|---|---|---|---|
-| id | UUID | Primary Key | Unique attempt identifier |
-| user_id | UUID | FK (users.id), NOT NULL, INDEXED | User who took the test |
-| skill | VARCHAR(100) | NOT NULL, INDEXED | Gap skill being retested |
-| score_pct | NUMERIC(5,2) | NOT NULL | Final score percentage |
-| correct_answers | INTEGER | NOT NULL, DEFAULT=0 | Number of correct answers |
-| total_questions | INTEGER | NOT NULL, DEFAULT=5 | Total questions in test |
-| passed | BOOLEAN | NOT NULL | True if score_pct >= 60 |
-| attempt_number | INTEGER | NOT NULL, DEFAULT=1 | Which attempt this is (retry tracking) |
-| submitted_at | TIMESTAMP | NULLABLE | When submitted |
-
-**Why this table exists:**
-- Separate from diagnostic — delta is only taken after gap resource study
-- `attempt_number` tracks retries — user can retry delta multiple times
-- Pass flips skill from gap to verified in USER_SKILL_ASSESSMENTS
-
----
-
-### 9. DELTA_ANSWERS Table
-
-**Purpose:** Individual answer records for each question in a delta test attempt. Identical structure to DIAGNOSTIC_ANSWERS.
-
-| Column | Type | Constraints | Explanation |
-|---|---|---|---|
-| id | UUID | Primary Key | Unique answer record |
-| attempt_id | UUID | FK (delta_attempts.id), NOT NULL, INDEXED | Parent delta attempt |
-| question_id | VARCHAR(20) | FK (diagnostic_questions.id), NOT NULL | Which question |
-| selected_option | VARCHAR(1) | NOT NULL | Option selected: `a`, `b`, `c`, or `d` |
-| is_correct | BOOLEAN | NOT NULL | Whether correct |
-
----
-
-### 10. GAP_RESOURCES Table
+### 6. GAP_RESOURCES Table
 
 **Purpose:** Curated study resources assigned to users when a gap is detected. User must complete all before delta test unlocks.
 
@@ -473,7 +330,7 @@ question_id: py_5, selected_option: a, is_correct: false
 
 ---
 
-### 11. USER_GAP_RESOURCES Table
+### 7. USER_GAP_RESOURCES Table
 
 **Purpose:** Junction table tracking which gap resources each user has completed.
 
@@ -492,7 +349,7 @@ question_id: py_5, selected_option: a, is_correct: false
 
 ---
 
-### 12. USER_COURSE_HISTORY Table
+### 8. USER_COURSE_HISTORY Table
 
 **Purpose:** Records which courses each user has completed. Drives roadmap step states.
 
@@ -500,7 +357,7 @@ question_id: py_5, selected_option: a, is_correct: false
 |---|---|---|---|
 | id | UUID | Primary Key | Unique record |
 | user_id | UUID | FK (users.id), NOT NULL, INDEXED | User |
-| course_id | INTEGER | FK (courses.id), NOT NULL, INDEXED | Completed course |
+| course_id | INTEGER | NOT NULL, INDEXED | Completed course ID |
 | playlist_id | TEXT | NULLABLE | YouTube playlist ID from YouTube Platform |
 | completed_via | VARCHAR(20) | NOT NULL, DEFAULT=`manual` | How completed: `manual` or `youtube_platform` |
 | completed_at | TIMESTAMP | NOT NULL, DEFAULT=NOW() | When marked complete |
@@ -512,55 +369,18 @@ question_id: py_5, selected_option: a, is_correct: false
 
 ---
 
-### 13. REAL_PLAYLISTS Table
-
-**Purpose:** Stores real YouTube playlists synced from the YouTube Learning Platform. Replaces mock course data in production.
-
-| Column | Type | Constraints | Explanation |
-|---|---|---|---|
-| id | UUID | Primary Key | Unique record |
-| youtube_playlist_id | VARCHAR(100) | UNIQUE, NOT NULL | YouTube playlist ID |
-| title | VARCHAR(255) | NOT NULL | Playlist title from YouTube |
-| skill_tags | TEXT | NULLABLE | Comma-separated tags e.g. `python,fastapi` |
-| level | VARCHAR(20) | NOT NULL, DEFAULT=`Beginner` | Beginner / Intermediate / Advanced |
-| provider | VARCHAR(100) | NULLABLE | YouTube channel name |
-| popularity_score | NUMERIC(4,2) | NULLABLE | Normalized popularity from YouTube Platform analytics (0.0 to 1.0) |
-| synced_at | TIMESTAMP | NOT NULL, DEFAULT=NOW() | When last synced from YouTube Platform |
-
-**Why this table exists:**
-- Bridges this system with the YouTube Learning Platform
-- `popularity_score` feeds into scoring algorithm as real dynamic rating data
-- `skill_tags` enables topic-to-playlist matching for roadmap generation
-
----
-
 ## Relationships and Foreign Keys
 
 ### 1:N Relationships (One-to-Many)
 
-**User Domain:**
-
 | Parent | Child | Relationship |
 |---|---|---|
-| USERS | USER_SKILL_ASSESSMENTS | One user has many skill assessments (one per skill) |
-| USERS | DIAGNOSTIC_ATTEMPTS | One user can take many diagnostic tests |
-| USERS | DELTA_ATTEMPTS | One user can take many delta tests |
+| USERS | USER_SKILL_ASSESSMENTS | One user has many skill assessments |
+| USERS | SKILL_ATTEMPTS | One user has many test attempts |
 | USERS | USER_COURSE_HISTORY | One user has many completed courses |
 | USERS | USER_GAP_RESOURCES | One user can complete many gap resources |
-
-**Assessment Domain:**
-
-| Parent | Child | Relationship |
-|---|---|---|
-| DIAGNOSTIC_ATTEMPTS | DIAGNOSTIC_ANSWERS | One attempt has exactly 5 answers |
-| DELTA_ATTEMPTS | DELTA_ANSWERS | One attempt has exactly 5 answers |
-| DIAGNOSTIC_QUESTIONS | QUESTION_OPTIONS | One question has exactly 4 options |
-
-**Course Domain:**
-
-| Parent | Child | Relationship |
-|---|---|---|
-| COURSES | USER_COURSE_HISTORY | One course can be completed by many users |
+| SKILL_ATTEMPTS | SKILL_ANSWERS | One attempt has exactly 5 answers |
+| QUESTIONS | SKILL_ANSWERS | One question referenced in many answers |
 | GAP_RESOURCES | USER_GAP_RESOURCES | One resource can be completed by many users |
 
 ### M:N Relationships (via Junction Tables)
@@ -575,13 +395,9 @@ question_id: py_5, selected_option: a, is_correct: false
 ```
 Delete USERS
     → deletes USER_SKILL_ASSESSMENTS
-    → deletes DIAGNOSTIC_ATTEMPTS → DIAGNOSTIC_ANSWERS
-    → deletes DELTA_ATTEMPTS → DELTA_ANSWERS
+    → deletes SKILL_ATTEMPTS → SKILL_ANSWERS
     → deletes USER_COURSE_HISTORY
     → deletes USER_GAP_RESOURCES
-
-Delete DIAGNOSTIC_QUESTIONS
-    → deletes QUESTION_OPTIONS
 
 Delete GAP_RESOURCES
     → SET NULL on USER_GAP_RESOURCES.resource_id
@@ -593,27 +409,27 @@ Delete GAP_RESOURCES
 
 ### First Normal Form (1NF)
 **Satisfied** — All columns contain atomic values
-- `skill_tags` stored as TEXT (comma-separated) is acceptable for POC, should be normalized to a separate SKILL_TAGS table in production
-- No repeating groups — options are in separate QUESTION_OPTIONS table, not as columns on questions
+- `option_a`, `option_b`, `option_c`, `option_d` are stored as separate columns — atomic and clean
+- No repeating groups anywhere
 
 ### Second Normal Form (2NF)
-**Satisfied** — Every non-key column is fully dependent on the entire primary key
-- DIAGNOSTIC_ANSWERS: `is_correct` depends on both `attempt_id` and `question_id`
+**Satisfied** — Every non-key column depends on the full primary key
+- SKILL_ANSWERS: `is_correct` depends on both `attempt_id` and `question_id`
 - USER_GAP_RESOURCES: `completed_at` depends on both `user_id` and `resource_id`
-- No partial dependencies exist
 
 ### Third Normal Form (3NF)
 **Satisfied** — No transitive dependencies
-- `question_text` stored in DIAGNOSTIC_QUESTIONS, not repeated in DIAGNOSTIC_ANSWERS
-- Course metadata stored in COURSES, not duplicated in USER_COURSE_HISTORY
+- `question_text` stored in QUESTIONS, not repeated in SKILL_ANSWERS
+- Course metadata not duplicated in USER_COURSE_HISTORY
 
 ### Intentional Denormalization (for performance)
 
 | Field | Table | Reason |
 |---|---|---|
-| badge | USER_SKILL_ASSESSMENTS | Derived from verified/gap but stored for fast UI rendering without join |
+| badge | USER_SKILL_ASSESSMENTS | Derived from verified/gap but stored for fast UI rendering |
 | score_pct | USER_SKILL_ASSESSMENTS | Copied from attempt for quick access without join |
-| skill | USER_GAP_RESOURCES | Copied from GAP_RESOURCES for fast skill-based filtering |
+| skill | USER_GAP_RESOURCES | Copied from GAP_RESOURCES for fast filtering |
+| test_type | SKILL_ANSWERS | Copied from attempt for fast filtering without join |
 
 ---
 
@@ -624,16 +440,14 @@ Delete GAP_RESOURCES
 | users | id | Primary | Default primary key lookup |
 | user_skill_assessments | user_id | Index | Fast skill state lookup per user |
 | user_skill_assessments | skill | Index | Filter assessments by skill name |
-| diagnostic_attempts | user_id | Index | Retrieve all attempts for a user |
-| diagnostic_attempts | skill | Index | Filter attempts by skill |
-| diagnostic_answers | attempt_id | Index | Load all answers for an attempt |
-| delta_attempts | user_id | Index | Retrieve delta attempts per user |
-| delta_attempts | skill | Index | Filter delta attempts by skill |
-| courses | topic | Index | Match courses to roadmap steps |
+| skill_attempts | user_id | Index | Retrieve all attempts for a user |
+| skill_attempts | skill | Index | Filter attempts by skill |
+| skill_attempts | test_type | Index | Filter diagnostic vs delta attempts |
+| skill_answers | attempt_id | Index | Load all answers for an attempt |
+| questions | skill | Index | Load questions for a skill |
+| questions | test_type | Index | Filter diagnostic vs delta questions |
 | user_course_history | user_id | Index | Load user's completion history |
-| user_course_history | course_id | Index | Find all users who completed a course |
-| gap_resources | skill | Index | Load resources for a specific gap skill |
-| real_playlists | youtube_playlist_id | Unique Index | Fast playlist lookup by YouTube ID |
+| gap_resources | skill | Index | Load resources for a gap skill |
 
 ---
 
@@ -645,9 +459,7 @@ Delete GAP_RESOURCES
 
 ```
 USERS:
-  id:              u1
-  role:            Backend Developer
-  inferred_level:  Beginner
+  id: u1 | role: Backend Developer | inferred_level: Beginner
 ```
 
 **Step 2 — Python diagnostic test taken and passed (score 80%)**
@@ -656,15 +468,16 @@ USERS:
 USER_SKILL_ASSESSMENTS:
   user_id: u1 | skill: Python | verified: true | score_pct: 80.00 | badge: verified
 
-DIAGNOSTIC_ATTEMPTS:
-  user_id: u1 | skill: Python | score_pct: 80.00 | correct_answers: 4 | passed: true
+SKILL_ATTEMPTS:
+  user_id: u1 | skill: Python | test_type: diagnostic
+  score_pct: 80.00 | correct_answers: 4 | passed: true | attempt_number: 1
 
-DIAGNOSTIC_ANSWERS:
-  question_id: py_1 | selected_option: b | is_correct: true
-  question_id: py_2 | selected_option: c | is_correct: true
-  question_id: py_3 | selected_option: a | is_correct: true
-  question_id: py_4 | selected_option: b | is_correct: true
-  question_id: py_5 | selected_option: a | is_correct: false
+SKILL_ANSWERS:
+  question_id: py_1 | test_type: diagnostic | selected_option: b | is_correct: true
+  question_id: py_2 | test_type: diagnostic | selected_option: c | is_correct: true
+  question_id: py_3 | test_type: diagnostic | selected_option: a | is_correct: true
+  question_id: py_4 | test_type: diagnostic | selected_option: b | is_correct: true
+  question_id: py_5 | test_type: diagnostic | selected_option: a | is_correct: false
 ```
 
 **Step 3 — SQL diagnostic test taken and failed (score 40%)**
@@ -673,8 +486,9 @@ DIAGNOSTIC_ANSWERS:
 USER_SKILL_ASSESSMENTS:
   user_id: u1 | skill: SQL | gap: true | score_pct: 40.00 | badge: gap
 
-DIAGNOSTIC_ATTEMPTS:
-  user_id: u1 | skill: SQL | score_pct: 40.00 | passed: false | result: gap_detected
+SKILL_ATTEMPTS:
+  user_id: u1 | skill: SQL | test_type: diagnostic
+  score_pct: 40.00 | passed: false | result: gap_detected
 ```
 
 **Step 4 — User studies gap resources for SQL**
@@ -691,8 +505,9 @@ USER_GAP_RESOURCES:
 USER_SKILL_ASSESSMENTS:
   user_id: u1 | skill: SQL | verified: true | delta_passed: true | badge: verified
 
-DELTA_ATTEMPTS:
-  user_id: u1 | skill: SQL | score_pct: 80.00 | passed: true | attempt_number: 1
+SKILL_ATTEMPTS:
+  user_id: u1 | skill: SQL | test_type: delta
+  score_pct: 80.00 | passed: true | attempt_number: 1
 ```
 
 **Step 6 — Roadmap generated (Python and SQL verified, skipped)**

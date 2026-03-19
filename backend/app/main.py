@@ -224,11 +224,17 @@ def get_skill_state(user_id: str, skill: str) -> dict:
         }
     return user_assessments[user_id][skill]
 
-# EXISTING ENDPOINTS 
+# EXISTING ENDPOINTS
 
 @app.post("/api/v1/generate-path")
 async def generate_path(profile: UserProfile):
     history = user_histories.get(profile.user_id, [])
+
+    # Merge verified skills from assessment into current_skills
+    # Fix: if user passed Python diagnostic, roadmap auto-reflects it
+    assessed            = user_assessments.get(profile.user_id, {})
+    verified_skills     = [skill for skill, state in assessed.items() if state.get("verified")]
+    current_skills      = list(set(profile.current_skills + verified_skills))
 
     # Curriculum
     beginner_be     = ["Python Basics", "Database Integration", "API Development", "Version Control"]
@@ -238,8 +244,8 @@ async def generate_path(profile: UserProfile):
 
     # AutoPromotion Logic
     if "backend" in profile.role.lower():
-        has_beg = all(any(pill.lower() in t.lower() for pill in profile.current_skills) for t in beginner_be)
-        has_int = all(any(pill.lower() in t.lower() for pill in profile.current_skills) for t in intermediate_be)
+        has_beg = all(any(pill.lower() in t.lower() for pill in current_skills) for t in beginner_be)
+        has_int = all(any(pill.lower() in t.lower() for pill in current_skills) for t in intermediate_be)
 
         if has_beg and has_int:
             topics, target_level, engine = advanced_be,     "Advanced",     "AI-Driven - Expert Mode"
@@ -256,7 +262,7 @@ async def generate_path(profile: UserProfile):
     for i, topic in enumerate(topics):
         relevant_ids    = [c["id"] for c in mock_courses if c["topic"] == topic]
         is_history_done = any(cid in history for cid in relevant_ids)
-        is_pill_skipped = any(pill.lower() in topic.lower() for pill in profile.current_skills)
+        is_pill_skipped = any(pill.lower() in topic.lower() for pill in current_skills)
         is_reviewable   = False
 
         if is_history_done:
@@ -323,7 +329,7 @@ async def get_history(user_id: str):
     return {"user_id": user_id, "total": len(completed), "courses": completed}
 
 
-# ASSESSMENT ENDPOINTS 
+# ASSESSMENT ENDPOINTS
 
 # STEP 1 — Get diagnostic questions for a skill
 # GET /api/v1/assessment/questions?user_id=u1&skill=Python
@@ -495,7 +501,7 @@ async def get_assessment_status(user_id: str):
 
 
 
-# INTEGRATION ENDPOINTS 
+# INTEGRATION ENDPOINTS
 
 @app.get("/api/v1/roadmap/next")
 async def get_next_roadmap_step(user_id: str, playlist_id: str):
@@ -564,14 +570,14 @@ async def mark_roadmap_step_complete(data: RoadmapComplete):
     }
 
 
-# Fetch real playlists and popularity scores 
+# Fetch real playlists and popularity scores
 # Replaces mock rating with real popularity data from analytics
 # GET /api/v1/sync-playlists
 
 @app.get("/api/v1/sync-playlists")
 async def sync_playlists_from_yt_system():
     try:
-        # Get all  real playlists
+        # Get all real playlists
         playlists_resp = httpx.get(
             f"{YT_SERVICE_URL}/playlist/all",
             timeout=5.0

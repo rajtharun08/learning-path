@@ -15,7 +15,7 @@ app.add_middleware(
 )
 
 # His YouTube platform service URL
-HIS_SERVICE_URL = "http://youtube-platform:8000"
+YT_SERVICE_URL = "http://youtube-platform:8000"
 
 # DATA MODELS
 
@@ -78,7 +78,7 @@ mock_courses = [
 user_histories   = {}   # { user_id: [course_id, ...] }
 user_assessments = {}   # { user_id: { skill: { verified, score, gap, resources_done, delta_passed } } }
 
-# Stores real playlists fetched from his system
+# Stores real playlists fetched from YT system
 # { playlist_id: { title, skill_tags, level, provider, popularity_score } }
 real_playlists = {}
 
@@ -179,7 +179,7 @@ role_skills_map = {
 
 
 def calculate_score(course, target_level, popularity_score: float = None):
-    # Use his popularity score if available, else use hardcoded rating
+    # Use YT popularity score if available, else use hardcoded rating
     r = popularity_score if popularity_score is not None else course["rating"]
     l = 1.0 if course["level"].lower() == target_level.lower() else 0.5
     s = 1.0  # Topic Relevance
@@ -273,7 +273,7 @@ async def generate_path(profile: UserProfile):
         if status in ["completed", "review", "active"]:
             available = [c for c in mock_courses if c["topic"] == topic]
             for c in available:
-                # Use real popularity score from his system if available
+                # Use real popularity score from YT system if available
                 pop_score = None
                 if c["resource_url"] in real_playlists:
                     pop_score = real_playlists[c["resource_url"]].get("popularity_score")
@@ -569,17 +569,17 @@ async def mark_roadmap_step_complete(data: RoadmapComplete):
 # GET /api/v1/sync-playlists
 
 @app.get("/api/v1/sync-playlists")
-async def sync_playlists_from_his_system():
+async def sync_playlists_from_yt_system():
     try:
         # Get all  real playlists
         playlists_resp = httpx.get(
-            f"{HIS_SERVICE_URL}/playlist/all",
+            f"{YT_SERVICE_URL}/playlist/all",
             timeout=5.0
         )
 
         # Get popularity scores from analytics service
         popular_resp = httpx.get(
-            f"{HIS_SERVICE_URL}/analytics/popular?limit=10",
+            f"{YT_SERVICE_URL}/analytics/popular?limit=10",
             timeout=5.0
         )
 

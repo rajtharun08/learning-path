@@ -1,14 +1,14 @@
 # Backend Architecture: LearningPath Recommendation Engine
 
-This document outlines the technical architecture, data flow, and logic implementation for the **LearningPath Backend POC** — now integrated with the YouTube Learning Platform.
+This document outlines the technical architecture, data flow, and logic implementation for the **LearningPath Recommendation Engine** — integrated with the YouTube Learning Platform.
 
 ---
 
 ## 1. System Overview
 
-The backend is built using **FastAPI**, chosen for its high performance, asynchronous capabilities, and native support for Pydantic data validation. The system serves as a "Hybrid Recommendation Engine," balancing local rule-based logic with a skill assessment layer and external AI inference.
+The backend is built using **FastAPI**, chosen for its high performance, asynchronous capabilities, and native support for Pydantic data validation. The system serves as a **Hybrid Recommendation Engine**, combining rule-based logic for Beginner and Intermediate tiers with AI-driven personalization for the Advanced tier.
 
-This system is designed to integrate with a companion **YouTube Learning Platform** (built separately by a teammate). The two systems connect at exactly two points — keeping both architectures clean and independent.
+This system integrates with a companion **YouTube Learning Platform** built separately. The two systems connect at exactly two points — keeping both architectures clean and independent.
 
 ### Component Structure
 
@@ -19,17 +19,26 @@ Frontend (React UI)
 FastAPI Backend — LearningPath Service (Port 8006)
         │
         ├─ Assessment Engine
-        │       ├─ Diagnostic Test:    5 MCQ questions per skill → gap detection
-        │       ├─ Gap Bridge:         Curated resources for weak skills
-        │       └─ Delta Test:         5 harder questions → skill verification
+        │       ├─ Diagnostic Test:       5 MCQ per skill (easy / medium / hard tagged)
+        │       ├─ Proficiency Detection: Beginner / Intermediate / Advanced per skill
+        │       ├─ Weak Topic Tracker:    Detects gaps even when user passes overall
+        │       └─ Gap Bridge:            Curated resources for weak/Beginner skills
         │
-        ├─ Tier Detection Logic:       Classifies user as Beginner / Intermediate / Advanced
-        ├─ Scoring Algorithm:          Ranks courses using 40/30/20/10 weightage
-        │                              (uses real popularity score from YouTube Platform if available)
-        ├─ Roadmap Generator:          Formats the final JSON sequence for the UI
-        ├─ Mock Course Data:           Local repository for zero-cost path generation
+        ├─ AI Question Generator:         OpenAI GPT-4o-mini for Intermediate + Advanced questions
+        │                                 Beginner questions are hardcoded (zero AI cost)
         │
-        └─ Integration Layer (NEW)
+        ├─ AI Roadmap Generator:          OpenAI GPT-4o-mini for Advanced tier custom roadmap
+        │
+        ├─ Tier Detection Logic:          Weakest link rule — overall tier = lowest skill level
+        ├─ Scoring Algorithm:             Ranks courses using 40/30/20/10 weightage
+        │                                 (uses real popularity score from YouTube Platform if available)
+        ├─ Roadmap Generator:             Formats the final JSON sequence for the UI
+        │       ├─ Beginner:              Rules-based fixed curriculum
+        │       ├─ Intermediate:          Rules-based fixed curriculum, per-skill level content
+        │       └─ Advanced:              AI generates fully custom personalized roadmap
+        ├─ Mock Course Data:              3 levels per skill (Beginner / Intermediate / Advanced)
+        │
+        └─ Integration Layer
                 ├─ /api/v1/roadmap/next      ← Called by YouTube Platform recommend engine
                 ├─ /api/v1/roadmap/complete  ← Called by YouTube Platform progress service
                 └─ /api/v1/sync-playlists    ← Fetches real playlists + popularity scores
@@ -38,40 +47,47 @@ FastAPI Backend — LearningPath Service (Port 8006)
 ### Architectural Workflow
 
 ```
-User claims skills (pills)
+User selects goal + claims skills
         │
         ▼
-Diagnostic Test (5 MCQ per skill)
+Diagnostic Test (5 MCQ per skill — easy / medium / hard)
         │
-        ├─ Score ≥ 60% → Verified ──────────────────────┐
-        │                                               │
-        └─ Score < 60% → Gap Detected                   │
-                │                                       │
-                ▼                                       │
-        Study Bridge Resources                          │
-                │                                       │
-                ▼                                       │
-        Delta Test (5 MCQ, harder)                      │
-                │                                       │
-                ├─ Pass → Verified ─────────────────────┤
-                └─ Fail → Retry                         │
-                                                        ▼
-                                              Roadmap Generated
-                                              (verified skills = skipped)
-                                                        │
-                                                        ▼
-                                   YouTube Platform loads real playlist for active step
-                                   (via /api/v1/roadmap/next integration endpoint)
-                                                        │
-                                                        ▼
-                                              User studies active courses
-                                                        │
-                                                        ▼
-                                   YouTube Platform detects 90% completion
-                                   → calls /api/v1/roadmap/complete
-                                                        │
-                                                        ▼
-                                              Next step unlocks automatically
+        ├─ Proficiency Detection per skill:
+        │       Failed easy              → Beginner
+        │       Passed easy+medium       → Intermediate
+        │       Passed all              → Advanced
+        │
+        ├─ Weak topic detection (even if overall pass)
+        │
+        ├─ Gap resources assigned for Beginner skills + weak topics
+        │
+        ▼
+Overall tier determined (weakest link rule)
+        │
+        ├─ All Advanced      → AI generates custom Advanced roadmap
+        ├─ Any Intermediate  → Rules-based Intermediate roadmap
+        └─ Any Beginner      → Rules-based Beginner roadmap
+        │
+        ▼
+Each skill gets content at its own proficiency level
+        │
+        ▼
+YouTube Platform loads correct playlist per step
+(via /api/v1/roadmap/next integration endpoint)
+        │
+        ▼
+User studies courses — progress tracked by YouTube Platform
+        │
+        ▼
+YouTube Platform detects 90% completion
+→ calls /api/v1/roadmap/complete
+        │
+        ▼
+Next step unlocks automatically
+        │
+        ▼
+All steps done → roadmap complete signal sent
+Certificate handled by separate service
 ```
 
 ---
@@ -79,70 +95,81 @@ Diagnostic Test (5 MCQ per skill)
 ## 2. Core Components
 
 ### A. API Layer (FastAPI)
-- **RESTful Endpoints:** Handles requests for skill assessment, roadmap generation, history tracking, and integration.
+- **RESTful Endpoints:** Handles requests for skill assessment, roadmap generation, history tracking and integration.
 - **Asynchronous Handling:** Uses Python's `async/await` to handle concurrent requests without blocking.
 - **Auto-Documentation:** Integrated Swagger UI (`/docs`) for real-time testing and endpoint verification.
 
 ### B. Assessment Engine
 
-The assessment layer validates self-reported skills before the roadmap is generated. It prevents the system from skipping topics the user doesn't actually know.
+The assessment layer tests claimed skills using difficulty-tagged MCQ questions and detects proficiency level per skill before roadmap generation.
 
 **Diagnostic Test**
-- 5 targeted MCQ questions per skill
-- Pass threshold: 60%
-- Pass → skill marked **verified**, skipped in roadmap
-- Fail → skill marked as **gap**, bridge resources assigned
+- 5 MCQ questions per skill tagged by difficulty and topic
+- Questions 1–2: easy (fundamentals)
+- Questions 3–4: medium (applied concepts)
+- Question 5: hard (advanced topics)
+- Beginner questions are hardcoded — zero AI cost
+- Intermediate and Advanced questions are AI-generated via GPT-4o-mini (cached per skill/level)
+
+**Proficiency Detection**
+- Failed easy questions → Beginner
+- Passed easy and medium, failed hard → Intermediate
+- Passed all including hard → Advanced
+- Weak topics tracked per skill even when user passes overall
 
 **Gap Bridge**
-- Curated learning resources per gap skill
-- User must mark all resources as done before delta test unlocks
-
-**Delta Test**
-- 5 harder questions per gap skill
-- Same 60% pass threshold
-- Pass → skill flips from unverified → verified
-- Fail → user reviews resources and retries
+- Gap resources assigned for every skill where Beginner is detected
+- Targeted resources also assigned for weak topics even when Intermediate or Advanced
+- User marks resources as done before starting that roadmap step
 
 ### C. Hybrid Recommendation Engine
 
-The roadmap logic is divided into two tiers:
+The roadmap logic runs in three modes based on the user's overall tier:
 
-1. **Rules-Based Tier (Beginner)**
-   - Pure local logic — no API cost
-   - Maps verified skills to predefined curriculum topics
-   - Scoring algorithm ranks courses within each topic
+**Beginner — Rules-Based (Fixed Curriculum)**
+- No AI cost
+- Fixed topic order: Python → SQL → FastAPI → Docker → Git
+- Each skill gets content at its detected proficiency level
+- Beginner skill → Beginner course, Intermediate skill → Intermediate course, Advanced skill → Advanced course
+- Gap resources shown alongside each step
 
-2. **AI-Inference Tier (Advanced/Expert) — Stub**
-   - Placeholder for LLM integration (GPT-4o mini / Gemini Flash)
-   - Activates when user is auto-promoted to Intermediate or Advanced tier
-   - Swap the stub with a real API call when ready
+**Intermediate — Rules-Based (Fixed Curriculum, One Level Up)**
+- No AI cost
+- Same fixed topic order
+- Each skill gets content one level higher than its detected level
+- Beginner skill → Intermediate course, Intermediate skill → Advanced course
+- Weak topic resources shown alongside each step
 
-### D. Integration Layer (NEW)
+**Advanced — AI-Driven (Fully Personalized)**
+- OpenAI GPT-4o-mini generates a custom 5–6 topic roadmap
+- Input: role, verified skills, proficiency levels, weak topics
+- No fixed curriculum — every user gets a unique Advanced roadmap
+- Fallback to fixed Advanced topics if AI call fails
 
-Two new endpoints connect this system to the YouTube Learning Platform:
+### D. Integration Layer
+
+Two endpoints connect this system to the YouTube Learning Platform:
 
 **`GET /api/v1/roadmap/next`**
-- Called by the YouTube Platform recommend engine before its own resume/next/popular logic
-- Returns the next playlist the user should study based on their roadmap and verified skills
-- If user has completed all steps returns `roadmap_complete`
+- Called by YouTube Platform recommend engine before resume/next/popular logic
+- Returns next playlist matching the user's skill and proficiency level
+- If all steps done returns `roadmap_complete`
 
 **`POST /api/v1/roadmap/complete`**
-- Called by the YouTube Platform progress service when a course hits 90% completion
-- Marks the roadmap step as done and automatically unlocks the next step
-- Updates `user_histories` in-memory store
+- Called by YouTube Platform progress service when course hits 90% completion
+- Marks step done and automatically unlocks the next step
 
 **`GET /api/v1/sync-playlists`**
-- Fetches real playlists from YouTube Platform's `/playlist/all` endpoint
-- Fetches popularity scores from YouTube Platform's `/analytics/popular` endpoint
-- Stores them in `real_playlists` dict for use in scoring algorithm
-- Replaces hardcoded mock rating with real platform popularity data
+- Fetches real playlists from YouTube Platform `/playlist/all`
+- Fetches popularity scores from YouTube Platform `/analytics/popular`
+- Stores in `real_playlists` dict — used by scoring algorithm as real rating data
 
 ### E. Data Persistence
-- **POC:** In-memory Python dictionaries — resets on server restart
+- **Phase 1:** In-memory Python dictionaries — resets on server restart
 - **Production:** PostgreSQL
-  - User skill states, diagnostic scores, delta results
+  - User skill assessments, proficiency levels, weak topics
   - Learning history per user
-  - Verified skill badges
+  - Real playlist cache
 
 ---
 
@@ -153,17 +180,17 @@ Courses are ranked within each roadmap step using a weighted formula:
 | Metric | Weight | Description |
 | :--- | :--- | :--- |
 | **Skill Relevance** | 40% | Direct match between topic and course content |
-| **Rating** | 30% | Uses real popularity score from YouTube Platform analytics if available, falls back to hardcoded rating |
-| **Level Match** | 20% | How closely the course difficulty matches the user's tier |
-| **Provider Authority** | 10% | Trusted providers score higher (FreeCodeCamp, Mosh, Tiangolo, AWS) |
+| **Rating** | 30% | Real popularity score from YouTube Platform analytics if available, falls back to hardcoded rating |
+| **Level Match** | 20% | How closely the course difficulty matches the user's proficiency for that skill |
+| **Provider Authority** | 10% | Trusted providers score higher (FreeCodeCamp, Mosh, Tiangolo, AWS Training) |
 
 ```
 final_score = (0.4 × skill_relevance) + (0.3 × popularity_or_rating) + (0.2 × level_match) + (0.1 × provider_authority)
 ```
 
-Result is returned as a 0–100 score in the API response (`match_score` field).
+Result returned as 0–100 score in `match_score` field.
 
-**Popularity score** is fetched from the YouTube Platform's analytics service and normalized to 0–1 range:
+**Popularity score** is fetched from YouTube Platform analytics and normalized to 0–1 range:
 ```
 normalized_popularity = play_count / max_play_count_on_platform
 ```
@@ -174,14 +201,42 @@ normalized_popularity = play_count / max_play_count_on_platform
 
 | State | Meaning | Frontend Behaviour |
 | :--- | :--- | :--- |
-| **completed** | Verified via history or YouTube Platform completion event | Render as finished |
-| **review** | Claimed via skill pill, not history-verified | Show "Review Resources" CTA |
-| **active** | Current learning focus | Show ranked course cards |
-| **locked** | Prerequisite not met | Render disabled |
+| **completed** | Course finished via YouTube Platform completion event | Render as finished |
+| **active** | Current learning focus | Show ranked course cards and targeted resources |
+| **locked** | Prerequisite step not yet completed | Render disabled |
 
 ---
 
-## 5. Integration with YouTube Learning Platform
+## 5. Tier System
+
+### Proficiency Level Detection (per skill)
+
+| Performance | Level Assigned |
+| :--- | :--- |
+| Failed easy questions | Beginner |
+| Passed easy + medium, failed hard | Intermediate |
+| Passed all including hard | Advanced |
+
+### Overall Tier (Weakest Link Rule)
+
+The overall tier is determined by the lowest proficiency level across all assessed skills.
+
+| Skill Levels | Overall Tier | Engine |
+| :--- | :--- | :--- |
+| All Advanced | Advanced | AI-Driven |
+| All Intermediate or above | Intermediate | Rules-Based |
+| Any Beginner | Beginner | Rules-Based |
+
+### Tier Progression
+
+- Beginner tier complete → Intermediate roadmap generated (each skill moves one level up)
+- Intermediate tier complete → Advanced roadmap generated (AI driven)
+- No new diagnostic test needed for tier progression — stored proficiency levels are used
+- Certificate and final assessment handled by a separate service
+
+---
+
+## 6. Integration with YouTube Learning Platform
 
 ### How the Two Systems Connect
 
@@ -189,7 +244,7 @@ normalized_popularity = play_count / max_play_count_on_platform
 YouTube Platform (Port 8000)          LearningPath (Port 8006)
 ─────────────────────────────         ────────────────────────
 recommend engine          ──────────→ GET /api/v1/roadmap/next
-                          ←────────── returns next playlist_id
+                          ←────────── returns next playlist_id + skill + level
 
 progress service          ──────────→ POST /api/v1/roadmap/complete
                                        marks step done, unlocks next
@@ -212,31 +267,32 @@ If this service is unreachable, the YouTube Platform automatically falls back to
 
 ---
 
-## 6. Scalability Roadmap
+## 7. Scalability Roadmap
 
 ### Caching Layer (Future)
-- Hash `(user_goal + verified_skills)` as a Redis key
-- Cache generated roadmaps — return in <50ms on hit
-- Reduces LLM API calls by ~50% for repeated skill combinations
+- Hash `(user_goal + skill_profile)` as a Redis key
+- Cache generated roadmaps — return in under 50ms on hit
+- Reduces AI API calls significantly for repeated skill combinations
 
 ### Database (Production)
-- Replace `user_histories`, `user_assessments`, and `real_playlists` dicts with PostgreSQL tables
-- Persist diagnostic scores, delta results, verified badges, and course history across sessions
+- Replace in-memory dicts with PostgreSQL tables
+- Persist proficiency levels, weak topics, course history across sessions
 
-### AI Engine (Next Phase)
-- Replace the AI-Inference stub with a real LLM call
-- Feed verified skill data (not self-reported pills) into the prompt
-- Generate non-linear roadmaps for complex/niche skill combinations
+### AI Engine Improvements (Next Phase)
+- Adaptive question selection — start with medium, go up or down based on performance
+- Confidence score based on attempts and consistency
+- Graph-based skill progression — Python → FastAPI → System Design as dependency graph
 
 ### Sentiment Analysis (Planned)
 - YouTube Platform will add comment sentiment analysis
-- Negative sentiment scores fed into this system's scoring algorithm as an additional rating signal
+- Negative sentiment scores fed into scoring algorithm as additional rating signal
 - Improves course ranking with real user feedback data
 
 ---
 
-## 7. Security & Validation
-- **Pydantic Schemas:** All incoming JSON payloads are strictly validated against predefined schemas.
-- **CORS Middleware:** Configured to allow communication between the frontend and backend.
-- **Integration Security:** All calls to/from YouTube Platform are wrapped in try/except — failures are silent and never break either system.
-- **Note:** Authentication and user identity are handled by a separate service. The backend accepts `user_id` as a plain string passed from the frontend.
+## 8. Security & Validation
+- **Pydantic Schemas:** All incoming JSON payloads strictly validated against predefined schemas.
+- **CORS Middleware:** Configured to allow frontend-backend communication.
+- **Integration Security:** All calls to/from YouTube Platform wrapped in try/except — failures are silent and never break either system.
+- **OpenAI Fallback:** If AI question generation fails, system falls back to hardcoded Beginner questions automatically.
+- **Note:** Authentication handled by a separate service. Backend accepts `user_id` as a plain string from the frontend.

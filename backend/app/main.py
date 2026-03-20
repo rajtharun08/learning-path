@@ -81,6 +81,8 @@ mock_courses = [
 
     # ── VERSION CONTROL ──────────────────────────────────────
     {"id": 13, "skill": "Git",    "topic": "Version Control",       "level": "Beginner",     "rating": 0.94, "provider": "Traversy",            "skill_tags": ["git"],            "resource_url": "https://www.youtube.com/watch?v=RGOj5yH7evk"},
+    {"id": 14, "skill": "Git", "topic": "Git Intermediate", "level": "Intermediate", "rating": 0.91, "provider": "Traversy", "skill_tags": ["git"], "resource_url": "https://www.youtube.com/watch?v=Gg4bLk8cX8U"},
+    {"id": 15, "skill": "Git", "topic": "Git Advanced",     "level": "Advanced",     "rating": 0.92, "provider": "Traversy", "skill_tags": ["git"], "resource_url": "https://www.youtube.com/watch?v=qsTthZi23VE"},
 ]
 
 # In-memory stores
@@ -100,55 +102,55 @@ question_cache = {}
 # Tagged by topic for weak topic detection
 beginner_questions = {
     "Python": [
-        {"id": "py_1", "difficulty": "easy",   "topic": "data_types",      "question": "Which of these is a mutable data type?",                        "options": {"a": "tuple", "b": "str", "c": "list", "d": "int"},          "answer": "c"},
-        {"id": "py_2", "difficulty": "easy",   "topic": "exceptions",      "question": "How do you handle exceptions in Python?",                       "options": {"a": "try/catch", "b": "try/except", "c": "catch/finally", "d": "error/handle"}, "answer": "b"},
-        {"id": "py_3", "difficulty": "medium", "topic": "generators",      "question": "What keyword is used to define a generator in Python?",         "options": {"a": "return", "b": "yield", "c": "async", "d": "pass"},     "answer": "b"},
-        {"id": "py_4", "difficulty": "medium", "topic": "concurrency",     "question": "What does GIL stand for?",                                      "options": {"a": "Global Interpreter Lock", "b": "General Input Layer", "c": "Global Index List", "d": "None"}, "answer": "a"},
-        {"id": "py_5", "difficulty": "hard",   "topic": "decorators",      "question": "What does a decorator do?",                                     "options": {"a": "Imports a module", "b": "Wraps a function to extend its behaviour", "c": "Defines a class", "d": "Creates a variable"}, "answer": "b"},
+        {"id": "py_1", "difficulty": "easy",   "topic": "data_types",  "question": "Which of these is a mutable data type?",               "options": {"a": "tuple", "b": "str", "c": "list", "d": "int"},                                                                    "answer": "c"},
+        {"id": "py_2", "difficulty": "easy",   "topic": "exceptions",  "question": "How do you handle exceptions in Python?",              "options": {"a": "try/catch", "b": "try/except", "c": "catch/finally", "d": "error/handle"},                                        "answer": "b"},
+        {"id": "py_3", "difficulty": "medium", "topic": "generators",  "question": "What keyword is used to define a generator in Python?","options": {"a": "return", "b": "yield", "c": "async", "d": "pass"},                                                               "answer": "b"},
+        {"id": "py_4", "difficulty": "medium", "topic": "concurrency", "question": "What does GIL stand for?",                            "options": {"a": "Global Interpreter Lock", "b": "General Input Layer", "c": "Global Index List", "d": "None"},                      "answer": "a"},
+        {"id": "py_5", "difficulty": "hard",   "topic": "decorators",  "question": "What does a decorator do?",                           "options": {"a": "Imports a module", "b": "Wraps a function to extend its behaviour", "c": "Defines a class", "d": "Creates a variable"}, "answer": "b"},
     ],
     "SQL": [
-        {"id": "sql_1", "difficulty": "easy",   "topic": "basics",         "question": "Which is a DDL command?",                                       "options": {"a": "SELECT", "b": "INSERT", "c": "CREATE", "d": "UPDATE"},  "answer": "c"},
-        {"id": "sql_2", "difficulty": "easy",   "topic": "basics",         "question": "What does DISTINCT do?",                                        "options": {"a": "Sorts results", "b": "Removes duplicate rows", "c": "Groups rows", "d": "Counts rows"}, "answer": "b"},
-        {"id": "sql_3", "difficulty": "medium", "topic": "joins",          "question": "What does INNER JOIN return?",                                  "options": {"a": "All rows from both tables", "b": "Only matched rows", "c": "Only left table rows", "d": "Null rows"}, "answer": "b"},
-        {"id": "sql_4", "difficulty": "medium", "topic": "grouping",       "question": "Which clause filters rows AFTER grouping?",                    "options": {"a": "WHERE", "b": "FILTER", "c": "HAVING", "d": "ORDER BY"}, "answer": "c"},
-        {"id": "sql_5", "difficulty": "hard",   "topic": "search",         "question": "Which keyword is used for partial text search?",               "options": {"a": "MATCH", "b": "CONTAINS", "c": "LIKE", "d": "SIMILAR"},  "answer": "c"},
+        {"id": "sql_1", "difficulty": "easy",   "topic": "basics",   "question": "Which is a DDL command?",                         "options": {"a": "SELECT", "b": "INSERT", "c": "CREATE", "d": "UPDATE"},                                          "answer": "c"},
+        {"id": "sql_2", "difficulty": "easy",   "topic": "basics",   "question": "What does DISTINCT do?",                         "options": {"a": "Sorts results", "b": "Removes duplicate rows", "c": "Groups rows", "d": "Counts rows"},           "answer": "b"},
+        {"id": "sql_3", "difficulty": "medium", "topic": "joins",    "question": "What does INNER JOIN return?",                   "options": {"a": "All rows from both tables", "b": "Only matched rows", "c": "Only left table rows", "d": "Null rows"}, "answer": "b"},
+        {"id": "sql_4", "difficulty": "medium", "topic": "grouping", "question": "Which clause filters rows AFTER grouping?",      "options": {"a": "WHERE", "b": "FILTER", "c": "HAVING", "d": "ORDER BY"},                                          "answer": "c"},
+        {"id": "sql_5", "difficulty": "hard",   "topic": "search",   "question": "Which keyword is used for partial text search?", "options": {"a": "MATCH", "b": "CONTAINS", "c": "LIKE", "d": "SIMILAR"},                                           "answer": "c"},
     ],
     "FastAPI": [
-        {"id": "fa_1", "difficulty": "easy",   "topic": "basics",          "question": "Which library does FastAPI use for data validation?",           "options": {"a": "Marshmallow", "b": "Cerberus", "c": "Pydantic", "d": "Voluptuous"}, "answer": "c"},
-        {"id": "fa_2", "difficulty": "easy",   "topic": "routing",         "question": "Which decorator handles GET requests?",                         "options": {"a": "@app.get()", "b": "@app.fetch()", "c": "@app.read()", "d": "@app.request()"}, "answer": "a"},
-        {"id": "fa_3", "difficulty": "medium", "topic": "async",           "question": "What does async/await enable in FastAPI?",                      "options": {"a": "Multi-threading", "b": "Concurrency without blocking", "c": "Parallel processing", "d": "Caching"}, "answer": "b"},
-        {"id": "fa_4", "difficulty": "medium", "topic": "dependency",      "question": "What is Depends() used for?",                                   "options": {"a": "Database connection", "b": "Dependency injection", "c": "Middleware setup", "d": "Route grouping"}, "answer": "b"},
-        {"id": "fa_5", "difficulty": "hard",   "topic": "response",        "question": "What does response_model do?",                                  "options": {"a": "Validates input", "b": "Filters and validates output", "c": "Caches responses", "d": "Logs the response"}, "answer": "b"},
+        {"id": "fa_1", "difficulty": "easy",   "topic": "basics",     "question": "Which library does FastAPI use for data validation?", "options": {"a": "Marshmallow", "b": "Cerberus", "c": "Pydantic", "d": "Voluptuous"},                                        "answer": "c"},
+        {"id": "fa_2", "difficulty": "easy",   "topic": "routing",    "question": "Which decorator handles GET requests?",              "options": {"a": "@app.get()", "b": "@app.fetch()", "c": "@app.read()", "d": "@app.request()"},                                "answer": "a"},
+        {"id": "fa_3", "difficulty": "medium", "topic": "async",      "question": "What does async/await enable in FastAPI?",           "options": {"a": "Multi-threading", "b": "Concurrency without blocking", "c": "Parallel processing", "d": "Caching"},          "answer": "b"},
+        {"id": "fa_4", "difficulty": "medium", "topic": "dependency", "question": "What is Depends() used for?",                       "options": {"a": "Database connection", "b": "Dependency injection", "c": "Middleware setup", "d": "Route grouping"},           "answer": "b"},
+        {"id": "fa_5", "difficulty": "hard",   "topic": "response",   "question": "What does response_model do?",                      "options": {"a": "Validates input", "b": "Filters and validates output", "c": "Caches responses", "d": "Logs the response"},    "answer": "b"},
     ],
     "Docker": [
-        {"id": "dk_1", "difficulty": "easy",   "topic": "basics",          "question": "What is the purpose of a Dockerfile?",                         "options": {"a": "Configure a database", "b": "Define container build instructions", "c": "Set up networking", "d": "Install Python"}, "answer": "b"},
-        {"id": "dk_2", "difficulty": "easy",   "topic": "commands",        "question": "Which command runs a Docker container?",                        "options": {"a": "docker start", "b": "docker launch", "c": "docker run", "d": "docker exec"}, "answer": "c"},
-        {"id": "dk_3", "difficulty": "medium", "topic": "compose",         "question": "What does docker-compose do?",                                  "options": {"a": "Builds images", "b": "Manages multi-container apps", "c": "Deploys to cloud", "d": "Tests containers"}, "answer": "b"},
-        {"id": "dk_4", "difficulty": "medium", "topic": "storage",         "question": "What is a Docker volume used for?",                             "options": {"a": "CPU allocation", "b": "Persistent data storage", "c": "Network routing", "d": "Image compression"}, "answer": "b"},
-        {"id": "dk_5", "difficulty": "hard",   "topic": "environment",     "question": "How do you pass environment variables to a container?",         "options": {"a": "-v flag", "b": "-e flag", "c": "--network flag", "d": "ARGS in Dockerfile"}, "answer": "b"},
+        {"id": "dk_1", "difficulty": "easy",   "topic": "basics",      "question": "What is the purpose of a Dockerfile?",                    "options": {"a": "Configure a database", "b": "Define container build instructions", "c": "Set up networking", "d": "Install Python"}, "answer": "b"},
+        {"id": "dk_2", "difficulty": "easy",   "topic": "commands",    "question": "Which command runs a Docker container?",                  "options": {"a": "docker start", "b": "docker launch", "c": "docker run", "d": "docker exec"},                                       "answer": "c"},
+        {"id": "dk_3", "difficulty": "medium", "topic": "compose",     "question": "What does docker-compose do?",                           "options": {"a": "Builds images", "b": "Manages multi-container apps", "c": "Deploys to cloud", "d": "Tests containers"},            "answer": "b"},
+        {"id": "dk_4", "difficulty": "medium", "topic": "storage",     "question": "What is a Docker volume used for?",                      "options": {"a": "CPU allocation", "b": "Persistent data storage", "c": "Network routing", "d": "Image compression"},               "answer": "b"},
+        {"id": "dk_5", "difficulty": "hard",   "topic": "environment", "question": "How do you pass environment variables to a container?",   "options": {"a": "-v flag", "b": "-e flag", "c": "--network flag", "d": "ARGS in Dockerfile"},                                      "answer": "b"},
     ],
     "Git": [
-        {"id": "git_1", "difficulty": "easy",   "topic": "basics",         "question": "What does git init do?",                                        "options": {"a": "Clones a repo", "b": "Initializes a new Git repository", "c": "Commits changes", "d": "Pushes to remote"}, "answer": "b"},
-        {"id": "git_2", "difficulty": "easy",   "topic": "staging",        "question": "Which command stages all changes for commit?",                  "options": {"a": "git commit", "b": "git push", "c": "git add .", "d": "git status"}, "answer": "c"},
-        {"id": "git_3", "difficulty": "medium", "topic": "branching",      "question": "What does git checkout -b do?",                                 "options": {"a": "Deletes a branch", "b": "Switches to existing branch", "c": "Creates and switches to a new branch", "d": "Merges branches"}, "answer": "c"},
-        {"id": "git_4", "difficulty": "medium", "topic": "merging",        "question": "What is a merge conflict?",                                     "options": {"a": "A failed push", "b": "When two branches have conflicting changes", "c": "A deleted branch", "d": "An untracked file"}, "answer": "b"},
-        {"id": "git_5", "difficulty": "hard",   "topic": "rebasing",       "question": "What does git rebase do?",                                      "options": {"a": "Deletes commits", "b": "Moves commits to a new base", "c": "Reverts changes", "d": "Stashes changes"}, "answer": "b"},
+        {"id": "git_1", "difficulty": "easy",   "topic": "basics",    "question": "What does git init do?",                              "options": {"a": "Clones a repo", "b": "Initializes a new Git repository", "c": "Commits changes", "d": "Pushes to remote"},                    "answer": "b"},
+        {"id": "git_2", "difficulty": "easy",   "topic": "staging",   "question": "Which command stages all changes for commit?",        "options": {"a": "git commit", "b": "git push", "c": "git add .", "d": "git status"},                                                         "answer": "c"},
+        {"id": "git_3", "difficulty": "medium", "topic": "branching", "question": "What does git checkout -b do?",                      "options": {"a": "Deletes a branch", "b": "Switches to existing branch", "c": "Creates and switches to a new branch", "d": "Merges branches"}, "answer": "c"},
+        {"id": "git_4", "difficulty": "medium", "topic": "merging",   "question": "What is a merge conflict?",                          "options": {"a": "A failed push", "b": "When two branches have conflicting changes", "c": "A deleted branch", "d": "An untracked file"},        "answer": "b"},
+        {"id": "git_5", "difficulty": "hard",   "topic": "rebasing",  "question": "What does git rebase do?",                           "options": {"a": "Deletes commits", "b": "Moves commits to a new base", "c": "Reverts changes", "d": "Stashes changes"},                       "answer": "b"},
     ],
 }
 
 # Gap bridge resources — assigned when skill level is Beginner with weak topics
 gap_resources = {
     "Python": [
-        {"id": 501, "title": "Python Full Course",      "provider": "FreeCodeCamp",      "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
-        {"id": 502, "title": "Python OOP Tutorial",     "provider": "Corey Schafer",     "url": "https://www.youtube.com/watch?v=ZDa-Z5JzLYM"},
+        {"id": 501, "title": "Python Full Course",      "provider": "FreeCodeCamp",       "url": "https://www.youtube.com/watch?v=rfscVS0vtbw"},
+        {"id": 502, "title": "Python OOP Tutorial",     "provider": "Corey Schafer",      "url": "https://www.youtube.com/watch?v=ZDa-Z5JzLYM"},
     ],
     "SQL": [
-        {"id": 503, "title": "SQL for Beginners",       "provider": "Mosh",              "url": "https://www.youtube.com/watch?v=HXV3zeQKqGY"},
-        {"id": 504, "title": "Advanced SQL Queries",    "provider": "Corey Schafer",     "url": "https://www.youtube.com/watch?v=9yeOJ0ZMUYw"},
+        {"id": 503, "title": "SQL for Beginners",       "provider": "Mosh",               "url": "https://www.youtube.com/watch?v=HXV3zeQKqGY"},
+        {"id": 504, "title": "Advanced SQL Queries",    "provider": "Corey Schafer",      "url": "https://www.youtube.com/watch?v=9yeOJ0ZMUYw"},
     ],
     "FastAPI": [
-        {"id": 505, "title": "FastAPI Crash Course",    "provider": "Traversy",          "url": "https://www.youtube.com/watch?v=0sOvCWFmrtA"},
-        {"id": 506, "title": "FastAPI with PostgreSQL", "provider": "Tiangolo",          "url": "https://www.youtube.com/watch?v=398Yjhpkn5g"},
+        {"id": 505, "title": "FastAPI Crash Course",    "provider": "Traversy",           "url": "https://www.youtube.com/watch?v=0sOvCWFmrtA"},
+        {"id": 506, "title": "FastAPI with PostgreSQL", "provider": "Tiangolo",           "url": "https://www.youtube.com/watch?v=398Yjhpkn5g"},
     ],
     "Docker": [
         {"id": 507, "title": "Docker for Developers",  "provider": "TechWorld with Nana","url": "https://www.youtube.com/watch?v=3c-iKn767wE"},
@@ -156,18 +158,18 @@ gap_resources = {
     ],
 }
 
-# Role → ordered curriculum topics for Beginner tier (rules-based)
+# Role → ordered curriculum
 role_curriculum = {
-    "backend developer": ["Python", "SQL", "FastAPI", "Docker", "Git"],
+    "backend developer":  ["Python", "SQL", "FastAPI", "Docker", "Git"],
     "frontend developer": ["HTML/CSS", "JavaScript", "React"],
-    "fullstack developer": ["Python", "SQL", "FastAPI", "Docker", "Git"],
+    "fullstack developer":["Python", "SQL", "FastAPI", "Docker", "Git"],
 }
 
 # Role → skills to assess in diagnostic
 role_skills_map = {
-    "backend developer":   ["Python", "SQL", "FastAPI", "Docker"],
+    "backend developer":   ["Python", "SQL", "FastAPI", "Docker", "Git"],
     "frontend developer":  ["HTML/CSS", "JavaScript", "React"],
-    "fullstack developer": ["Python", "SQL", "FastAPI", "Docker"],
+    "fullstack developer": ["Python", "SQL", "FastAPI", "Docker", "Git"],
 }
 
 
@@ -186,7 +188,7 @@ async def generate_ai_questions(skill: str, level: str) -> List[dict]:
 
 Rules:
 - Questions 1-2: medium difficulty (applied concepts)
-- Questions 3-4: hard difficulty (advanced topics)  
+- Questions 3-4: hard difficulty (advanced topics)
 - Question 5: hard difficulty (expert level)
 - Each question must have exactly 4 options: a, b, c, d
 - Include the topic tag for each question (e.g. async, decorators, joins)
@@ -210,25 +212,23 @@ Return ONLY valid JSON in this exact format, no extra text:
             temperature=0.3,
         )
         raw = response.choices[0].message.content.strip()
-        # Strip markdown code fences if present
         raw = raw.replace("```json", "").replace("```", "").strip()
         questions = json.loads(raw)
 
-        # Store in cache
         if skill not in question_cache:
             question_cache[skill] = {}
         question_cache[skill][level] = questions
         return questions
 
     except Exception as e:
-        # Fallback to beginner questions if AI fails
+        print(f"[AI Question Gen Failed] skill={skill} level={level} error={e}")
         return beginner_questions.get(skill, [])
 
 
 
 # AI ADVANCED ROADMAP GENERATOR
-# Used only for Advanced tier — generates custom topic list
-# Beginner and Intermediate use fixed rule-based curricula
+# Used only when ALL skills are Advanced — generates personalized topic names
+# Beginner and Intermediate use fixed rules-based curricula
 
 
 async def generate_ai_roadmap(role: str, skill_profiles: dict) -> List[str]:
@@ -262,8 +262,8 @@ Example format:
         topics = json.loads(raw)
         return topics
 
-    except Exception:
-        # Fallback to fixed advanced topics
+    except Exception as e:
+        print(f"[AI Roadmap Gen Failed] role={role} error={e}")
         return ["System Design", "Cloud Architecture", "Performance Tuning", "Security Patterns"]
 
 
@@ -300,7 +300,6 @@ def detect_proficiency_level(answers: List[DiagnosticAnswer], questions: List[di
         if not is_correct and topic:
             weak_topics.append(topic)
 
-    # Proficiency level detection
     easy_pct   = (easy_correct   / easy_total   * 100) if easy_total   > 0 else 0
     medium_pct = (medium_correct / medium_total * 100) if medium_total > 0 else 0
     hard_pct   = (hard_correct   / hard_total   * 100) if hard_total   > 0 else 0
@@ -329,17 +328,18 @@ def detect_proficiency_level(answers: List[DiagnosticAnswer], questions: List[di
 
 # SCORING ALGORITHM
 # Weights: Skill Relevance(40%), Rating(30%), Level Match(20%), Provider Authority(10%)
+# weak_topics boost: courses matching weak areas score 20% higher
 
 
-def calculate_score(course, target_level, popularity_score: float = None):
-    # Use YT popularity score if available, else use hardcoded rating
+def calculate_score(course, target_level, weak_topics=[], popularity_score: float = None):
+    weak_boost = 1.2 if any(wt.lower() in course["topic"].lower() for wt in weak_topics) else 1.0
     r = popularity_score if popularity_score is not None else course["rating"]
     l = 1.0 if course["level"].lower() == target_level.lower() else 0.5
-    s = 1.0  # Topic Relevance
+    s = 1.0
     p = 1.0 if course["provider"] in ["FreeCodeCamp", "Mosh", "Tiangolo", "AWS Training"] else 0.8
-
-    final_score = (0.4 * s) + (0.3 * r) + (0.2 * l) + (0.1 * p)
+    final_score = ((0.4 * s) + (0.3 * r) + (0.2 * l) + (0.1 * p)) * weak_boost
     return round(final_score * 100, 1)
+
 
 # Grading helper
 def grade_answers(submitted: List[DiagnosticAnswer], question_bank: List[dict]) -> dict:
@@ -362,16 +362,17 @@ def grade_answers(submitted: List[DiagnosticAnswer], question_bank: List[dict]) 
     score_pct = round((correct / len(question_bank)) * 100) if question_bank else 0
     return {"score_pct": score_pct, "correct": correct, "total": len(question_bank), "breakdown": breakdown}
 
+
 # Helper to safely get or init a user's assessment state
 def get_skill_state(user_id: str, skill: str) -> dict:
     if user_id not in user_assessments:
         user_assessments[user_id] = {}
     if skill not in user_assessments[user_id]:
         user_assessments[user_id][skill] = {
-            "proficiency_level": None,       # Beginner / Intermediate / Advanced
+            "proficiency_level": None,
             "score_pct":         None,
-            "weak_topics":       [],          # Topics user got wrong even if overall pass
-            "gap":               False,       # True if Beginner level detected
+            "weak_topics":       [],
+            "gap":               False,
             "resources_done":    [],
             "diagnostic_done":   False,
         }
@@ -387,181 +388,101 @@ async def generate_path(profile: UserProfile):
     history  = user_histories.get(profile.user_id, [])
     assessed = user_assessments.get(profile.user_id, {})
 
-    # Get per-skill proficiency levels from assessment results
+    # Build per-skill proficiency levels from assessment results
     # Skills claimed but not yet assessed default to Beginner
-    curriculum  = role_curriculum.get(profile.role.lower(), [])
+    curriculum   = role_curriculum.get(profile.role.lower(), [])
     skill_levels = {}
     for skill in curriculum:
         if skill in assessed and assessed[skill].get("diagnostic_done"):
             skill_levels[skill] = assessed[skill].get("proficiency_level", "Beginner")
         elif skill.lower() in [s.lower() for s in profile.current_skills]:
-            # Claimed but not assessed yet — treat as Beginner until tested
             skill_levels[skill] = "Beginner"
         else:
             skill_levels[skill] = "Beginner"
 
-    # Determine overall tier from skill levels
-    # Weakest link rule — overall tier = lowest skill level
-    all_levels  = list(skill_levels.values())
-    has_advanced     = all(l == "Advanced"     for l in all_levels) if all_levels else False
-    has_intermediate = all(l in ["Intermediate", "Advanced"] for l in all_levels) if all_levels else False
+    # Check if ALL skills are Advanced — only then use AI roadmap
+    all_levels   = list(skill_levels.values())
+    has_advanced = all(l == "Advanced" for l in all_levels) if all_levels else False
 
+    # AI generates personalized topic names only when every skill is Advanced
+    # For all other cases — rules-based per-skill level content
     if has_advanced:
-        # AI generates custom Advanced roadmap
         ai_topics    = await generate_ai_roadmap(profile.role, assessed)
         target_level = "Advanced"
-        engine       = "AI-Driven"
-        topics       = ai_topics
+        engine       = "AI-Driven - Per Skill"
+    else:
+        ai_topics    = []
+        target_level = "Mixed"
+        engine       = "Rules-Based - Per Skill"
 
-        roadmap      = []
-        active_found = False
-        for i, topic in enumerate(topics):
-            status = "active" if not active_found else "locked"
+    # SINGLE UNIFIED LOOP
+    # Each skill independently gets content at its own detected level
+    # Handles Beginner / Intermediate / Advanced / any mix in one pass
+    # No global tier — no weakest link punishment
+    roadmap      = []
+    active_found = False
+
+    for i, skill in enumerate(curriculum):
+        skill_level = skill_levels.get(skill, "Beginner")
+
+        # Course lookup uses skill + level — always reliable, never empty
+        available = [
+            c for c in mock_courses
+            if c["skill"] == skill and c["level"] == skill_level
+        ]
+
+        relevant_ids    = [c["id"] for c in available]
+        is_history_done = any(cid in history for cid in relevant_ids)
+
+        if is_history_done:
+            status = "completed"
+        elif not active_found:
+            status, active_found = "active", True
+        else:
+            status = "locked"
+
+        # Weak topics and gap resources for this skill
+        weak_topics        = assessed.get(skill, {}).get("weak_topics", [])
+        skill_gap          = assessed.get(skill, {}).get("gap", False)
+        targeted_resources = gap_resources.get(skill, []) if (skill_gap or weak_topics) else []
+
+        # Build course list for active and completed steps only
+        # Locked steps show no courses — unlocked on completion of previous step
+        courses = []
+        if status in ["completed", "active"]:
+            for c in available:
+                pop_score = None
+                if c["resource_url"] in real_playlists:
+                    pop_score = real_playlists[c["resource_url"]].get("popularity_score")
+                courses.append({
+                    "course_id":    c["id"],
+                    "title":        c["topic"],
+                    "provider":     c.get("provider", "Unknown"),
+                    "resource_url": c["resource_url"],
+                    "match_score":  calculate_score(c, skill_level, weak_topics, pop_score),
+                    "is_finished":  c["id"] in history,
+                })
             if status == "active":
-                active_found = True
-
-            # Find Advanced courses matching topic keywords
-            available = [c for c in mock_courses if c["level"] == "Advanced" and
-                        any(kw.lower() in c["topic"].lower() for kw in topic.split())]
-            courses = []
-            if status == "active" and available:
-                for c in available:
-                    pop_score = None
-                    if c["resource_url"] in real_playlists:
-                        pop_score = real_playlists[c["resource_url"]].get("popularity_score")
-                    courses.append({
-                        "course_id":    c["id"],
-                        "title":        c["title"],
-                        "provider":     c.get("provider", "Unknown"),
-                        "resource_url": c["resource_url"],
-                        "match_score":  calculate_score(c, "Advanced", pop_score),
-                        "is_finished":  c["id"] in history,
-                    })
                 courses = sorted(courses, key=lambda x: x["match_score"], reverse=True)
 
-            roadmap.append({
-                "step":              i + 1,
-                "topic":             topic,
-                "status":            status,
-                "is_reviewable":     False,
-                "suggested_courses": courses,
-                "targeted_resources": [],
-                "weak_topics":       [],
-            })
+        # AI topic name as display label for Advanced users
+        # Rules-based skill — level label for everyone else
+        if has_advanced and i < len(ai_topics):
+            topic_label = ai_topics[i]
+        else:
+            topic_label = f"{skill} — {skill_level}"
 
-    elif has_intermediate:
-        # Intermediate — rules-based fixed curriculum, per-skill level content
-        target_level = "Intermediate"
-        engine       = "Rules-Based - Intermediate"
-        curriculum   = role_curriculum.get(profile.role.lower(), [])
-        roadmap      = []
-        active_found = False
-
-        for i, skill in enumerate(curriculum):
-            # Find course matching skill at correct level
-            skill_level  = skill_levels.get(skill, "Beginner")
-            # Move one level up for tier progression
-            next_level   = "Advanced" if skill_level == "Intermediate" else "Intermediate"
-            available    = [c for c in mock_courses if c["skill"] == skill and c["level"] == next_level]
-
-            relevant_ids    = [c["id"] for c in available]
-            is_history_done = any(cid in history for cid in relevant_ids)
-
-            if is_history_done:
-                status = "completed"
-            elif not active_found:
-                status, active_found = "active", True
-            else:
-                status = "locked"
-
-            courses = []
-            if status in ["completed", "active"]:
-                for c in available:
-                    pop_score = None
-                    if c["resource_url"] in real_playlists:
-                        pop_score = real_playlists[c["resource_url"]].get("popularity_score")
-                    courses.append({
-                        "course_id":    c["id"],
-                        "title":        c["title"],
-                        "provider":     c.get("provider", "Unknown"),
-                        "resource_url": c["resource_url"],
-                        "match_score":  calculate_score(c, next_level, pop_score),
-                        "is_finished":  c["id"] in history,
-                    })
-                if status == "active":
-                    courses = sorted(courses, key=lambda x: x["match_score"], reverse=True)
-
-            # Attach weak topic gap resources for this skill
-            weak_topics   = assessed.get(skill, {}).get("weak_topics", [])
-            targeted_resources = gap_resources.get(skill, []) if weak_topics else []
-
-            roadmap.append({
-                "step":              i + 1,
-                "topic":             f"{skill} — {next_level}",
-                "skill":             skill,
-                "status":            status,
-                "is_reviewable":     False,
-                "suggested_courses": courses,
-                "targeted_resources": targeted_resources,
-                "weak_topics":       weak_topics,
-            })
-
-    else:
-        # Beginner — rules-based fixed curriculum
-        target_level = "Beginner"
-        engine       = "Rules-Based - Beginner"
-        curriculum   = role_curriculum.get(profile.role.lower(), [])
-        roadmap      = []
-        active_found = False
-
-        for i, skill in enumerate(curriculum):
-            skill_level  = skill_levels.get(skill, "Beginner")
-            # Use detected proficiency level for content selection
-            content_level = skill_level if skill_level else "Beginner"
-            available     = [c for c in mock_courses if c["skill"] == skill and c["level"] == content_level]
-
-            relevant_ids    = [c["id"] for c in available]
-            is_history_done = any(cid in history for cid in relevant_ids)
-
-            if is_history_done:
-                status = "completed"
-            elif not active_found:
-                status, active_found = "active", True
-            else:
-                status = "locked"
-
-            courses = []
-            if status in ["completed", "active"]:
-                for c in available:
-                    pop_score = None
-                    if c["resource_url"] in real_playlists:
-                        pop_score = real_playlists[c["resource_url"]].get("popularity_score")
-                    courses.append({
-                        "course_id":    c["id"],
-                        "title":        c["title"],
-                        "provider":     c.get("provider", "Unknown"),
-                        "resource_url": c["resource_url"],
-                        "match_score":  calculate_score(c, content_level, pop_score),
-                        "is_finished":  c["id"] in history,
-                    })
-                if status == "active":
-                    courses = sorted(courses, key=lambda x: x["match_score"], reverse=True)
-
-            # Attach gap resources for Beginner skills with weak topics
-            weak_topics        = assessed.get(skill, {}).get("weak_topics", [])
-            skill_gap          = assessed.get(skill, {}).get("gap", False)
-            targeted_resources = gap_resources.get(skill, []) if (skill_gap or weak_topics) else []
-
-            roadmap.append({
-                "step":              i + 1,
-                "topic":             f"{skill} — {content_level}",
-                "skill":             skill,
-                "status":            status,
-                "is_reviewable":     False,
-                "suggested_courses": courses,
-                "targeted_resources": targeted_resources,
-                "weak_topics":       weak_topics,
-            })
+        roadmap.append({
+            "step":               i + 1,
+            "topic":              topic_label,
+            "skill":              skill,
+            "skill_level":        skill_level,
+            "status":             status,
+            "is_reviewable":      False,
+            "suggested_courses":  courses,
+            "targeted_resources": targeted_resources,
+            "weak_topics":        weak_topics,
+        })
 
     # Build competency profile summary
     competency_profile = {
@@ -574,6 +495,30 @@ async def generate_path(profile: UserProfile):
         if state.get("diagnostic_done")
     }
 
+    # Derive certificate tier from skill levels
+    # Weakest link applies — certificate reflects lowest tier completed
+    if all(l == "Advanced" for l in all_levels):
+        certificate_tier = "Advanced"
+    elif all(l in ["Intermediate", "Advanced"] for l in all_levels):
+        certificate_tier = "Intermediate"
+    else:
+        certificate_tier = "Beginner"
+
+    # All steps completed — signal final assessment to frontend
+    if all(s["status"] == "completed" for s in roadmap):
+        return {
+            "user_id":            profile.user_id,
+            "role":               profile.role,
+            "overall_tier":       target_level,
+            "engine":             engine,
+            "competency_profile": competency_profile,
+            "roadmap":            roadmap,
+            "is_path_finished":   True,
+            "next_action":        "final_assessment",
+            "certificate_tier":   certificate_tier,
+            "message":            f"All courses complete. Take final assessment to earn your {certificate_tier} certificate.",
+        }
+
     return {
         "user_id":            profile.user_id,
         "role":               profile.role,
@@ -581,7 +526,7 @@ async def generate_path(profile: UserProfile):
         "engine":             engine,
         "competency_profile": competency_profile,
         "roadmap":            roadmap,
-        "is_path_finished":   all(s["status"] in ["completed"] for s in roadmap),
+        "is_path_finished":   False,
     }
 
 
@@ -617,17 +562,14 @@ async def get_diagnostic_questions(user_id: str, skill: str, level: str = "Begin
         raise HTTPException(status_code=400, detail=f"Diagnostic for '{skill}' already completed.")
 
     if level == "Beginner":
-        # Rule-based — use hardcoded questions
         questions = beginner_questions.get(skill)
         if not questions:
             raise HTTPException(status_code=404, detail=f"No diagnostic available for skill '{skill}'.")
     else:
-        # AI generated for Intermediate and Advanced
         questions = await generate_ai_questions(skill, level)
         if not questions:
             raise HTTPException(status_code=404, detail=f"Could not generate questions for '{skill}' at {level} level.")
 
-    # Return questions without answers
     safe = [{"id": q["id"], "difficulty": q.get("difficulty"), "topic": q.get("topic"), "question": q["question"], "options": q["options"]} for q in questions]
     return {"user_id": user_id, "skill": skill, "level": level, "questions": safe}
 
@@ -642,7 +584,6 @@ async def submit_diagnostic(submission: DiagnosticSubmission):
     if state["diagnostic_done"]:
         raise HTTPException(status_code=400, detail=f"Diagnostic for '{submission.skill}' already completed.")
 
-    # Get the right question bank based on level from request body
     if submission.level == "Beginner":
         questions = beginner_questions.get(submission.skill, [])
     else:
@@ -651,17 +592,14 @@ async def submit_diagnostic(submission: DiagnosticSubmission):
     if not questions:
         raise HTTPException(status_code=404, detail=f"No questions found for '{submission.skill}'.")
 
-    # Detect proficiency level and weak topics
     result = detect_proficiency_level(submission.answers, questions)
 
-    # Update skill state
     state["diagnostic_done"]   = True
     state["proficiency_level"] = result["proficiency_level"]
     state["score_pct"]         = result["score_pct"]
     state["weak_topics"]       = result["weak_topics"]
     state["gap"]               = result["proficiency_level"] == "Beginner"
 
-    # Assign gap resources if Beginner level detected
     resources = []
     if state["gap"]:
         resources = gap_resources.get(submission.skill, [])
@@ -727,11 +665,10 @@ async def get_assessment_status(user_id: str):
             "gap":               state["gap"],
         })
 
-    # Determine overall tier from weakest skill
-    levels     = [s["proficiency_level"] for s in summary if s["proficiency_level"]]
-    all_adv    = all(l == "Advanced"                       for l in levels) if levels else False
-    all_int    = all(l in ["Intermediate", "Advanced"]     for l in levels) if levels else False
-    overall    = "Advanced" if all_adv else ("Intermediate" if all_int else "Beginner")
+    levels  = [s["proficiency_level"] for s in summary if s["proficiency_level"]]
+    all_adv = all(l == "Advanced"                   for l in levels) if levels else False
+    all_int = all(l in ["Intermediate", "Advanced"] for l in levels) if levels else False
+    overall = "Advanced" if all_adv else ("Intermediate" if all_int else "Beginner")
 
     return {
         "user_id":         user_id,
@@ -751,20 +688,17 @@ async def get_assessment_status(user_id: str):
 
 @app.get("/api/v1/roadmap/next")
 async def get_next_roadmap_step(user_id: str, playlist_id: str):
-    history      = user_histories.get(user_id, [])
-    assessed     = user_assessments.get(user_id, {})
+    history  = user_histories.get(user_id, [])
+    assessed = user_assessments.get(user_id, {})
 
-    # Find next course not in history — matching user's proficiency level per skill
     for course in mock_courses:
         course_id    = course["id"]
         skill        = course["skill"]
         course_level = course["level"]
 
-        # Skip if already completed
         if course_id in history:
             continue
 
-        # Match course level to user's proficiency for this skill
         user_level = assessed.get(skill, {}).get("proficiency_level", "Beginner")
         if course_level != user_level:
             continue
@@ -795,7 +729,6 @@ async def mark_roadmap_step_complete(data: RoadmapComplete):
     if data.user_id not in user_histories:
         user_histories[data.user_id] = []
 
-    # Match playlist back to a course and mark it done
     for course in mock_courses:
         if course.get("resource_url", "") == data.playlist_id:
             if course["id"] not in user_histories[data.user_id]:
@@ -803,7 +736,7 @@ async def mark_roadmap_step_complete(data: RoadmapComplete):
             return {
                 "status":      "success",
                 "user_id":     data.user_id,
-                "course_done": course["title"],
+                "course_done": course["topic"],
                 "topic":       course["topic"],
                 "message":     "Roadmap step complete. Next step unlocked."
             }
@@ -821,31 +754,20 @@ async def mark_roadmap_step_complete(data: RoadmapComplete):
 @app.get("/api/v1/sync-playlists")
 async def sync_playlists_from_yt_system():
     try:
-        # Get all real playlists
-        playlists_resp = httpx.get(
-            f"{YT_SERVICE_URL}/playlist/all",
-            timeout=5.0
-        )
-
-        # Get popularity scores from analytics service
-        popular_resp = httpx.get(
-            f"{YT_SERVICE_URL}/analytics/popular?limit=10",
-            timeout=5.0
-        )
+        async with httpx.AsyncClient() as client:
+            playlists_resp = await client.get(f"{YT_SERVICE_URL}/playlist/all", timeout=5.0)
+            popular_resp   = await client.get(f"{YT_SERVICE_URL}/analytics/popular?limit=10", timeout=5.0)
 
         if playlists_resp.status_code == 200:
             playlists = playlists_resp.json()
             popular   = popular_resp.json() if popular_resp.status_code == 200 else []
 
-            # Build popularity lookup
-            # Normalize score to 0-1 range for scoring algorithm
             max_pop = max([p.get("play_count", 1) for p in popular], default=1)
             pop_map = {
                 p["video_id"]: round(p.get("play_count", 0) / max_pop, 2)
                 for p in popular
             }
 
-            # Store real playlists with popularity scores
             for playlist in playlists.get("items", []):
                 pid = playlist.get("youtube_playlist_id", "")
                 real_playlists[pid] = {

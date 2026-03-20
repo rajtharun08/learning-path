@@ -27,15 +27,18 @@ FastAPI Backend — LearningPath Service (Port 8006)
         ├─ AI Question Generator:         OpenAI GPT-4o-mini for Intermediate + Advanced questions
         │                                 Beginner questions are hardcoded (zero AI cost)
         │
-        ├─ AI Roadmap Generator:          OpenAI GPT-4o-mini for Advanced tier custom roadmap
+        ├─ AI Roadmap Generator:          OpenAI GPT-4o-mini for Advanced tier — generates
+        │                                 personalized topic names when ALL skills are Advanced
         │
-        ├─ Tier Detection Logic:          Weakest link rule — overall tier = lowest skill level
+        ├─ Per-Skill Roadmap Logic:       Each skill gets content at its own detected level
+        │                                 No global tier — no weakest link punishment
         ├─ Scoring Algorithm:             Ranks courses using 40/30/20/10 weightage
-        │                                 (uses real popularity score from YouTube Platform if available)
+        │                                 Weak topic boost: courses matching weak areas score 20% higher
+        │                                 Uses real popularity score from YouTube Platform if available
         ├─ Roadmap Generator:             Formats the final JSON sequence for the UI
-        │       ├─ Beginner:              Rules-based fixed curriculum
-        │       ├─ Intermediate:          Rules-based fixed curriculum, per-skill level content
-        │       └─ Advanced:              AI generates fully custom personalized roadmap
+        │       ├─ Rules-Based:           Fixed curriculum — each skill at its own level
+        │       └─ AI-Driven:             All skills Advanced → AI generates personalized topic names
+        │                                 Course lookup still rules-based (skill + level)
         ├─ Mock Course Data:              3 levels per skill (Beginner / Intermediate / Advanced)
         │
         └─ Integration Layer
@@ -62,14 +65,15 @@ Diagnostic Test (5 MCQ per skill — easy / medium / hard)
         ├─ Gap resources assigned for Beginner skills + weak topics
         │
         ▼
-Overall tier determined (weakest link rule)
+Per-skill roadmap generated — no global tier
         │
-        ├─ All Advanced      → AI generates custom Advanced roadmap
-        ├─ Any Intermediate  → Rules-based Intermediate roadmap
-        └─ Any Beginner      → Rules-based Beginner roadmap
+        ├─ Each skill independently gets content at its own detected level
+        │       Python Advanced  → Python Advanced course
+        │       SQL Beginner     → SQL Beginner course + gap resources
+        │       FastAPI Intermed → FastAPI Intermediate course
         │
-        ▼
-Each skill gets content at its own proficiency level
+        ├─ All skills Advanced → AI generates personalized topic names as display labels
+        │                        Course lookup still uses skill + level (rules-based)
         │
         ▼
 YouTube Platform loads correct playlist per step
@@ -86,8 +90,9 @@ YouTube Platform detects 90% completion
 Next step unlocks automatically
         │
         ▼
-All steps done → roadmap complete signal sent
-Certificate handled by separate service
+All steps done → certificate_tier derived from skill levels
+→ next_action: final_assessment signaled to frontend
+→ Certificate and final assessment handled by separate service
 ```
 
 ---
@@ -124,29 +129,37 @@ The assessment layer tests claimed skills using difficulty-tagged MCQ questions 
 
 ### C. Hybrid Recommendation Engine
 
-The roadmap logic runs in three modes based on the user's overall tier:
+The roadmap runs as a **single unified loop** — one pass through the curriculum, each skill independently selecting content at its own detected level.
 
-**Beginner — Rules-Based (Fixed Curriculum)**
-- No AI cost
+**Rules-Based (all tiers except all-Advanced)**
+- No AI cost for course lookup
 - Fixed topic order: Python → SQL → FastAPI → Docker → Git
-- Each skill gets content at its detected proficiency level
-- Beginner skill → Beginner course, Intermediate skill → Intermediate course, Advanced skill → Advanced course
-- Gap resources shown alongside each step
-
-**Intermediate — Rules-Based (Fixed Curriculum, One Level Up)**
-- No AI cost
-- Same fixed topic order
-- Each skill gets content one level higher than its detected level
-- Beginner skill → Intermediate course, Intermediate skill → Advanced course
+- Each skill gets content at its own detected proficiency level
+  - Beginner skill → Beginner course + gap resources
+  - Intermediate skill → Intermediate course
+  - Advanced skill → Advanced course
 - Weak topic resources shown alongside each step
+- Handles any mix of levels in one pass — no weakest link punishment
 
-**Advanced — AI-Driven (Fully Personalized)**
-- OpenAI GPT-4o-mini generates a custom 5–6 topic roadmap
+**AI-Driven (only when ALL skills are Advanced)**
+- OpenAI GPT-4o-mini generates personalized topic display names (e.g. "Advanced Async Python")
 - Input: role, verified skills, proficiency levels, weak topics
-- No fixed curriculum — every user gets a unique Advanced roadmap
-- Fallback to fixed Advanced topics if AI call fails
+- Topic names are display labels only — course lookup still uses skill + level
+- Fallback to fixed Advanced topic names if AI call fails
 
-### D. Integration Layer
+### D. Certificate Tier Derivation
+
+Certificate tier is computed at roadmap completion time from skill levels — not stored in the database:
+
+```
+All skills Advanced              → certificate_tier = "Advanced"
+All skills Intermediate or above → certificate_tier = "Intermediate"
+Any skill Beginner               → certificate_tier = "Beginner"
+```
+
+Signaled to frontend via `next_action: final_assessment` when `is_path_finished: true`.
+
+### E. Integration Layer
 
 Two endpoints connect this system to the YouTube Learning Platform:
 
@@ -164,7 +177,7 @@ Two endpoints connect this system to the YouTube Learning Platform:
 - Fetches popularity scores from YouTube Platform `/analytics/popular`
 - Stores in `real_playlists` dict — used by scoring algorithm as real rating data
 
-### E. Data Persistence
+### F. Data Persistence
 - **Phase 1:** In-memory Python dictionaries — resets on server restart
 - **Production:** PostgreSQL
   - User skill assessments, proficiency levels, weak topics
@@ -175,7 +188,7 @@ Two endpoints connect this system to the YouTube Learning Platform:
 
 ## 3. The Scoring Algorithm
 
-Courses are ranked within each roadmap step using a weighted formula:
+Courses are ranked within each roadmap step using a weighted formula with a weak topic boost:
 
 | Metric | Weight | Description |
 | :--- | :--- | :--- |
@@ -185,15 +198,17 @@ Courses are ranked within each roadmap step using a weighted formula:
 | **Provider Authority** | 10% | Trusted providers score higher (FreeCodeCamp, Mosh, Tiangolo, AWS Training) |
 
 ```
-final_score = (0.4 × skill_relevance) + (0.3 × popularity_or_rating) + (0.2 × level_match) + (0.1 × provider_authority)
+final_score = ((0.4 × skill_relevance) + (0.3 × popularity_or_rating) + (0.2 × level_match) + (0.1 × provider_authority)) × weak_boost
 ```
 
-Result returned as 0–100 score in `match_score` field.
+**Weak Topic Boost:** If the course topic matches any of the user's weak topics, the final score is multiplied by 1.2 — ensuring courses that address weak areas rank higher.
 
 **Popularity score** is fetched from YouTube Platform analytics and normalized to 0–1 range:
 ```
 normalized_popularity = play_count / max_play_count_on_platform
 ```
+
+Result returned as 0–100 score in `match_score` field.
 
 ---
 
@@ -203,7 +218,7 @@ normalized_popularity = play_count / max_play_count_on_platform
 | :--- | :--- | :--- |
 | **completed** | Course finished via YouTube Platform completion event | Render as finished |
 | **active** | Current learning focus | Show ranked course cards and targeted resources |
-| **locked** | Prerequisite step not yet completed | Render disabled |
+| **locked** | Prerequisite step not yet completed | Render disabled — no courses shown |
 
 ---
 
@@ -217,22 +232,41 @@ normalized_popularity = play_count / max_play_count_on_platform
 | Passed easy + medium, failed hard | Intermediate |
 | Passed all including hard | Advanced |
 
-### Overall Tier (Weakest Link Rule)
+### Per-Skill Roadmap Logic
 
-The overall tier is determined by the lowest proficiency level across all assessed skills.
+There is no global tier. Each skill independently selects content at its own detected level.
 
-| Skill Levels | Overall Tier | Engine |
+| Skill Level | Content Served | Gap Resources |
 | :--- | :--- | :--- |
-| All Advanced | Advanced | AI-Driven |
-| All Intermediate or above | Intermediate | Rules-Based |
-| Any Beginner | Beginner | Rules-Based |
+| Beginner | Beginner course | Yes — assigned automatically |
+| Intermediate | Intermediate course | Only if weak topics detected |
+| Advanced | Advanced course | Only if weak topics detected |
+
+### AI Roadmap Trigger
+
+AI roadmap generation is triggered only when ALL skills are Advanced. In all other cases the roadmap is rules-based.
+
+| Condition | Engine | Topic Labels |
+| :--- | :--- | :--- |
+| All skills Advanced | AI-Driven | AI generates personalized topic names |
+| Any skill not Advanced | Rules-Based | Skill — Level format (e.g. "Python — Intermediate") |
+
+### Certificate Tier
+
+Derived at roadmap completion from skill levels in USER_SKILL_ASSESSMENTS:
+
+| Skill Levels at Completion | Certificate Issued |
+| :--- | :--- |
+| All Advanced | Advanced Certificate |
+| All Intermediate or above | Intermediate Certificate |
+| Any Beginner | Beginner Certificate |
 
 ### Tier Progression
 
-- Beginner tier complete → Intermediate roadmap generated (each skill moves one level up)
-- Intermediate tier complete → Advanced roadmap generated (AI driven)
+- Roadmap complete → `next_action: final_assessment` signaled to frontend
+- Final assessment handled by separate service → promotes skill levels in USER_SKILL_ASSESSMENTS
+- `generate-path` called again → new roadmap generated at promoted levels
 - No new diagnostic test needed for tier progression — stored proficiency levels are used
-- Certificate and final assessment handled by a separate service
 
 ---
 
@@ -294,5 +328,5 @@ If this service is unreachable, the YouTube Platform automatically falls back to
 - **Pydantic Schemas:** All incoming JSON payloads strictly validated against predefined schemas.
 - **CORS Middleware:** Configured to allow frontend-backend communication.
 - **Integration Security:** All calls to/from YouTube Platform wrapped in try/except — failures are silent and never break either system.
-- **OpenAI Fallback:** If AI question generation fails, system falls back to hardcoded Beginner questions automatically.
+- **OpenAI Fallback:** If AI question generation fails, system falls back to hardcoded Beginner questions automatically. Errors logged for visibility.
 - **Note:** Authentication handled by a separate service. Backend accepts `user_id` as a plain string from the frontend.

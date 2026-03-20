@@ -8,7 +8,7 @@ A skill-aware learning path generator that tests what users actually know, detec
 
 Most learning platforms just ask you what you know and trust your answer. This system does not.
 
-When a user claims they know Python, the system tests them with 5 difficulty-tagged questions. Based on performance across easy, medium and hard questions it determines whether they are Beginner, Intermediate or Advanced in that skill — and even identifies which specific topics they are weak in even if they pass overall. The roadmap is then built to match each skill's actual level, not a single overall score.
+When a user claims they know Python, the system tests them with 5 difficulty-tagged questions. Based on performance across easy, medium and hard questions it determines whether they are Beginner, Intermediate or Advanced in that skill — and even identifies which specific topics they are weak in even if they pass overall. The roadmap is then built to match each skill's actual level independently — no single global tier, no weakest link punishment.
 
 ---
 
@@ -17,7 +17,7 @@ When a user claims they know Python, the system tests them with 5 difficulty-tag
 - **FastAPI** — API framework
 - **Pydantic** — data validation
 - **Python 3.8+** — runtime
-- **OpenAI GPT-4o-mini** — AI question generation for Intermediate and Advanced, AI roadmap for Advanced tier
+- **OpenAI GPT-4o-mini** — AI question generation for Intermediate and Advanced, AI roadmap topic names for Advanced tier
 - **In-memory dicts** — Phase 1 data store (PostgreSQL in production)
 - **httpx** — inter-service HTTP calls for YouTube Platform integration
 
@@ -78,7 +78,7 @@ Weak topics tracked even if overall pass
         ↓
 Gap resources assigned for Beginner skills + weak topics
         ↓
-Roadmap generated — each skill gets content at its own level
+Roadmap generated — each skill independently gets content at its own level
 ```
 
 ---
@@ -100,7 +100,7 @@ Roadmap generated — each skill gets content at its own level
 | `GET` | `/api/v1/assessment/questions?user_id=&skill=&level=` | Get 5 diagnostic MCQ questions (Beginner=hardcoded, Intermediate/Advanced=AI generated) |
 | `POST` | `/api/v1/assessment/submit` | Submit diagnostic answers — returns proficiency level and weak topics |
 | `POST` | `/api/v1/assessment/resource-done` | Mark a gap resource as completed |
-| `GET` | `/api/v1/assessment/status/{user_id}` | Get full skill assessment summary and overall tier |
+| `GET` | `/api/v1/assessment/status/{user_id}` | Get full skill assessment summary |
 
 ### Integration
 
@@ -121,7 +121,7 @@ Roadmap generated — each skill gets content at its own level
       → if Beginner detected:
 3. POST /api/v1/assessment/resource-done  → mark each gap resource done
       → repeat steps 1-3 for each skill
-4. POST /api/v1/generate-path       → roadmap built from proficiency levels
+4. POST /api/v1/generate-path       → roadmap built from per-skill proficiency levels
 ```
 
 ---
@@ -142,15 +142,29 @@ Weak topics are tracked separately — even if a user passes overall, specific t
 
 ## Tier System
 
-Overall tier is determined by the weakest skill (weakest link rule):
+Each skill gets content at its own independently detected proficiency level. There is no global tier and no weakest link rule.
 
-| Skill Levels | Overall Tier | Roadmap Type |
+| Skill Level | Content Served | Gap Resources |
 |---|---|---|
-| All Advanced | Advanced | AI generates custom roadmap |
-| All Intermediate or above | Intermediate | Rules-based, one level up per skill |
-| Any Beginner | Beginner | Rules-based, content at each skill's level |
+| Beginner | Beginner course | Yes — assigned automatically |
+| Intermediate | Intermediate course | Only if weak topics detected |
+| Advanced | Advanced course | Only if weak topics detected |
 
-Each skill gets content at its own detected proficiency level — not a single level for all skills.
+When ALL skills are Advanced, AI generates personalized topic names as display labels. Course lookup remains rules-based in all cases.
+
+---
+
+## Certificate Tier
+
+Derived at roadmap completion from skill levels — not stored in the database:
+
+| Skill Levels at Completion | Certificate |
+|---|---|
+| All Advanced | Advanced Certificate |
+| All Intermediate or above | Intermediate Certificate |
+| Any Beginner | Beginner Certificate |
+
+When all roadmap steps are completed, the system signals `next_action: final_assessment` to the frontend. The final assessment and certificate issuance are handled by a separate service.
 
 ---
 
@@ -166,8 +180,10 @@ Courses within each roadmap step are ranked using a weighted formula:
 | Provider Authority | 10% | Trusted providers rank higher (FreeCodeCamp, Mosh, Tiangolo, AWS) |
 
 ```
-score = (0.4 x relevance) + (0.3 x rating) + (0.2 x level) + (0.1 x provider)
+score = ((0.4 × relevance) + (0.3 × rating) + (0.2 × level) + (0.1 × provider)) × weak_boost
 ```
+
+**Weak topic boost:** Courses matching a user's weak topics score 20% higher — ensuring targeted content ranks first.
 
 ---
 
@@ -176,8 +192,8 @@ score = (0.4 x relevance) + (0.3 x rating) + (0.2 x level) + (0.1 x provider)
 | State | Meaning |
 |---|---|
 | `completed` | Done via YouTube Platform completion event |
-| `active` | Current learning focus |
-| `locked` | Prerequisite step not yet completed |
+| `active` | Current learning focus — courses shown and ranked |
+| `locked` | Prerequisite step not yet completed — no courses shown |
 
 ---
 
@@ -189,7 +205,7 @@ score = (0.4 x relevance) + (0.3 x rating) + (0.2 x level) + (0.1 x provider)
 | Frontend Developer | HTML/CSS, JavaScript, React |
 | Fullstack Developer | Python, SQL, FastAPI, Docker, Git |
 
-Each skill has courses at Beginner, Intermediate and Advanced level. The roadmap picks the right level per skill based on diagnostic results.
+Each skill has courses at Beginner, Intermediate and Advanced level. The roadmap picks the right level per skill based on diagnostic results independently.
 
 ---
 
@@ -199,10 +215,10 @@ Each skill has courses at Beginner, Intermediate and Advanced level. The roadmap
 |---|---|---|
 | Intermediate diagnostic questions | GPT-4o-mini | When user requests Intermediate level questions |
 | Advanced diagnostic questions | GPT-4o-mini | When user requests Advanced level questions |
-| Advanced roadmap generation | GPT-4o-mini | When all skills are Advanced |
+| Advanced roadmap topic names | GPT-4o-mini | When ALL skills are Advanced — generates personalized display labels |
 | Beginner questions | None — hardcoded | Always free, no AI cost |
 
-AI generated questions are cached per skill/level so they are only generated once.
+AI generated questions are cached per skill/level so they are only generated once. AI roadmap topic names are display labels only — course lookup is always rules-based.
 
 ---
 
@@ -232,6 +248,8 @@ When moving to production with PostgreSQL, the system will use these 8 tables:
 | USER_GAP_RESOURCES | Which resources each user completed |
 | USER_COURSE_HISTORY | Course completion and roadmap progression |
 
+Note: Overall tier and certificate tier are not stored — both are derived dynamically at roadmap generation and completion time respectively.
+
 ---
 
 ## Important Notes
@@ -242,4 +260,4 @@ When moving to production with PostgreSQL, the system will use these 8 tables:
 - **OpenAI key required** — set `OPENAI_API_KEY` in environment for Intermediate and Advanced questions.
 - **Beginner questions are free** — no API key needed for Beginner level assessment.
 - **Fallback safe** — if YouTube Platform or OpenAI is unreachable, system continues working with fallbacks.
-- **Certificate and final assessment** — handled by a separate service. This system only signals roadmap complete.
+- **Certificate and final assessment** — handled by a separate service. This system only signals `next_action: final_assessment` with `certificate_tier` when roadmap is complete.

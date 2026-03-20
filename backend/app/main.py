@@ -171,11 +171,11 @@ role_skills_map = {
 }
 
 
-# ─────────────────────────────────────────
+
 # AI QUESTION GENERATOR
 # Uses OpenAI to generate Intermediate and Advanced diagnostic questions
 # Beginner questions are hardcoded (rule-based, no AI cost)
-# ─────────────────────────────────────────
+
 
 async def generate_ai_questions(skill: str, level: str) -> List[dict]:
     # Return from cache if already generated
@@ -225,11 +225,11 @@ Return ONLY valid JSON in this exact format, no extra text:
         return beginner_questions.get(skill, [])
 
 
-# ─────────────────────────────────────────
+
 # AI ADVANCED ROADMAP GENERATOR
 # Used only for Advanced tier — generates custom topic list
 # Beginner and Intermediate use fixed rule-based curricula
-# ─────────────────────────────────────────
+
 
 async def generate_ai_roadmap(role: str, skill_profiles: dict) -> List[str]:
     profile_summary = "\n".join([
@@ -267,10 +267,10 @@ Example format:
         return ["System Design", "Cloud Architecture", "Performance Tuning", "Security Patterns"]
 
 
-# ─────────────────────────────────────────
+
 # PROFICIENCY DETECTION
 # Derives Beginner / Intermediate / Advanced from diagnostic performance
-# ─────────────────────────────────────────
+
 
 def detect_proficiency_level(answers: List[DiagnosticAnswer], questions: List[dict]) -> dict:
     bank_map = {q["id"]: q for q in questions}
@@ -326,10 +326,10 @@ def detect_proficiency_level(answers: List[DiagnosticAnswer], questions: List[di
     }
 
 
-# ─────────────────────────────────────────
+
 # SCORING ALGORITHM
 # Weights: Skill Relevance(40%), Rating(30%), Level Match(20%), Provider Authority(10%)
-# ─────────────────────────────────────────
+
 
 def calculate_score(course, target_level, popularity_score: float = None):
     # Use YT popularity score if available, else use hardcoded rating
@@ -378,9 +378,9 @@ def get_skill_state(user_id: str, skill: str) -> dict:
     return user_assessments[user_id][skill]
 
 
-# ─────────────────────────────────────────
+
 # ROADMAP ENDPOINTS
-# ─────────────────────────────────────────
+
 
 @app.post("/api/v1/generate-path")
 async def generate_path(profile: UserProfile):
@@ -601,9 +601,9 @@ async def get_history(user_id: str):
     return {"user_id": user_id, "total": len(completed), "courses": completed}
 
 
-# ─────────────────────────────────────────
+
 # ASSESSMENT ENDPOINTS
-# ─────────────────────────────────────────
+
 
 # STEP 1 — Get diagnostic questions for a skill
 # Beginner → hardcoded rule-based questions
@@ -741,12 +741,12 @@ async def get_assessment_status(user_id: str):
     }
 
 
-# ─────────────────────────────────────────
+
 # INTEGRATION ENDPOINTS
 # Connects to YouTube Learning Platform
-# ─────────────────────────────────────────
 
-# His recommend engine calls this first before resume/next/popular logic
+
+# YT recommend engine calls this first before resume/next/popular logic
 # GET /api/v1/roadmap/next?user_id=u1&playlist_id=PLxyz
 
 @app.get("/api/v1/roadmap/next")
@@ -787,7 +787,7 @@ async def get_next_roadmap_step(user_id: str, playlist_id: str):
     }
 
 
-# His progress service calls this when course hits 90% done
+# YT progress service calls this when course hits 90% done
 # POST /api/v1/roadmap/complete
 
 @app.post("/api/v1/roadmap/complete")
